@@ -62,10 +62,9 @@
                 <form action="{{ route('admin.schools.deletion-action') }}" method="POST" id="deletionForm">
                     @csrf
                     <div class="mb-3">
-                        <label for="school_id" class="form-label">رمز المدرسة</label>
-                        <input type="text" class="form-control @error('school_id') is-invalid @enderror" 
-                            id="school_id" name="school_id" required value="{{ $school->code }}" readonly
-                            placeholder="أدخل رمز المدرسة">
+                        <label for="school_code" class="form-label">رمز المدرسة</label>
+                        <input type="text" class="form-control" id="school_code" value="{{ $school->code }}" readonly placeholder="رمز المدرسة">
+                        <input type="hidden" name="school_id" value="{{ $school->id }}">
                         <div class="form-text text-muted">
                             هذا هو رمز المدرسة الذي تم إنشاؤه تلقائياً عند إنشاء المدرسة.
                         </div>
@@ -86,7 +85,7 @@
                             @endif
                         </div>
                     </div>
-
+                    
                     <div class="mb-4">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="confirm_deletion" name="confirm_deletion" required>

@@ -166,7 +166,7 @@ class UnifiedProfileController extends Controller
     public function updatePhone(Request $request)
     {
         $request->validate([
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'regex:/^07[7-9][0-9]{7}$/'],
             'current_password' => 'required',
         ]);
 
@@ -217,7 +217,7 @@ class UnifiedProfileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'regex:/^07[7-9][0-9]{7}$/'],
             'address' => 'nullable|string|max:255',
             'current_password' => 'required',
         ]);
@@ -247,7 +247,7 @@ class UnifiedProfileController extends Controller
         $student = Auth::guard('student')->user();
         
         $request->validate([
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'regex:/^07[7-9][0-9]{7}$/'],
             'address' => 'nullable|string|max:255',
             'current_password' => ['required', function ($attribute, $value, $fail) use ($student) {
                 if (!Hash::check($value, $student->password)) {

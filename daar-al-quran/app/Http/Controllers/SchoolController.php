@@ -79,8 +79,9 @@ class SchoolController extends Controller
         $school = School::create([
             'name' => $request->name,
             'code' => $code,
-            'admin_id' => $request->admin_id,
+            'admin_id' => Auth::id(),
             'address' => $request->address,
+            'deletion_code' => $deletionCode,
         ]);
 
         return redirect()->route('admin.dashboard')

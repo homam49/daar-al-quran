@@ -16,7 +16,7 @@ class AddSenderTypeToMessagesTable extends Migration
         Schema::table('messages', function (Blueprint $table) {
             $table->enum('sender_type', ['teacher', 'student'])->default('teacher')->after('sender_id');
             $table->unsignedBigInteger('recipient_id')->nullable()->after('student_id');
-            $table->foreign('recipient_id')->references('id')->on('users');
+            $table->foreign('recipient_id')->references('id')->on('users')->onDelete('set null');
         });
     }
 

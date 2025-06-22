@@ -165,7 +165,7 @@ class StudentAuthController extends Controller
         $request->validate([
             'email' => 'required|email|unique:students,email,' . $student->id,
             'username' => 'required|string|min:4|unique:students,username,' . $student->id,
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'regex:/^07[7-9][0-9]{7}$/'],
             'address' => 'nullable|string|max:255',
             'password' => 'nullable|min:6|confirmed',
         ]);

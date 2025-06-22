@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers;
 
@@ -179,7 +179,7 @@ class AdminController extends Controller
             ->first();
             
         if (!$school) {
-            return back()->with('error', 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¯Ø±Ø³Ø©');
+            return back()->with('error', 'ليس لديك صلاحية للوصول إلى هذه المدرسة');
         }
         
         // Update the approval status
@@ -191,7 +191,7 @@ class AdminController extends Controller
                 'updated_at' => now()
             ]);
             
-        return back()->with('success', 'ØªÙ…Øª Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø© Ø¹Ù„Ù‰ Ø§Ù†Ø¶Ù…Ø§Ù… Ø§Ù„Ù…Ø¹Ù„Ù… Ù„Ù„Ù…Ø¯Ø±Ø³Ø© Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تمت الموافقة على انضمام المعلم للمدرسة بنجاح');
     }
 
     /**
@@ -216,7 +216,7 @@ class AdminController extends Controller
             ->first();
             
         if (!$school) {
-            return back()->with('error', 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¯Ø±Ø³Ø©');
+            return back()->with('error', 'ليس لديك صلاحية للوصول إلى هذه المدرسة');
         }
         
         // Delete the school_teacher relationship
@@ -225,7 +225,7 @@ class AdminController extends Controller
             ->where('school_id', $schoolId)
             ->delete();
             
-        return back()->with('success', 'ØªÙ… Ø±ÙØ¶ Ø·Ù„Ø¨ Ø§Ù†Ø¶Ù…Ø§Ù… Ø§Ù„Ù…Ø¹Ù„Ù… Ù„Ù„Ù…Ø¯Ø±Ø³Ø© Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تم رفض طلب انضمام المعلم للمدرسة بنجاح');
     }
 
     /**
@@ -238,13 +238,13 @@ class AdminController extends Controller
     {
         // Check if the user is a teacher
         if ($user->role->name !== 'teacher') {
-            return back()->with('error', 'Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„ÙŠØ³ Ù…Ø¹Ù„Ù…Ù‹Ø§');
+            return back()->with('error', 'هذا المستخدم ليس معلماً');
         }
 
         $user->is_approved = true;
         $user->save();
 
-        return back()->with('success', 'ØªÙ…Øª Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø¹Ù„Ù… Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تمت الموافقة على المعلم بنجاح');
     }
 
     /**
@@ -257,7 +257,7 @@ class AdminController extends Controller
     {
         // Check if the user is a teacher
         if ($user->role->name !== 'teacher') {
-            return back()->with('error', 'Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„ÙŠØ³ Ù…Ø¹Ù„Ù…Ù‹Ø§');
+            return back()->with('error', 'هذا المستخدم ليس معلماً');
         }
         
         // Get all schools owned by this admin
@@ -270,7 +270,7 @@ class AdminController extends Controller
             ->get();
         
         if ($teacherSchools->isEmpty()) {
-            return back()->with('error', 'Ù‡Ø°Ø§ Ø§Ù„Ù…Ø¹Ù„Ù… Ù„ÙŠØ³ ÙÙŠ Ø£ÙŠ Ù…Ù† Ù…Ø¯Ø§Ø±Ø³Ùƒ');
+            return back()->with('error', 'هذا المعلم ليس في أي من مدارسِك');
         }
         
         // Get all classrooms created by this teacher in admin's schools
@@ -291,7 +291,7 @@ class AdminController extends Controller
                 ->delete();
         }
         
-        return back()->with('success', 'ØªÙ… Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù…Ø¹Ù„Ù… Ù…Ù† Ù…Ø¯Ø§Ø±Ø³Ùƒ ÙˆØ­Ø°Ù ÙØµÙˆÙ„Ù‡ Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تم إزالة المعلم من مدارسِك وحذف فصوله بنجاح');
     }
 
     /**
@@ -304,7 +304,7 @@ class AdminController extends Controller
     {
         // Check if the user is actually a teacher
         if ($user->role->name !== 'teacher') {
-            return redirect()->route('admin.teachers')->with('error', 'Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø§Ù„Ù…Ø­Ø¯Ø¯ Ù„ÙŠØ³ Ù…Ø¹Ù„Ù…Ù‹Ø§');
+            return redirect()->route('admin.teachers')->with('error', 'المستخدم المحدد ليس معلماً');
         }
         
         // Get admin's schools
@@ -317,7 +317,7 @@ class AdminController extends Controller
             ->exists();
         
         if (!$teacherInAdminSchool) {
-            return redirect()->route('admin.teachers')->with('error', 'ØºÙŠØ± Ù…ØµØ±Ø­ Ù„Ùƒ Ø¨Ø¹Ø±Ø¶ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø¹Ù„Ù…');
+            return redirect()->route('admin.teachers')->with('error', 'غير مصرح لك بعرض هذا المعلم');
         }
         
         // Get the teacher's schools that the admin manages
@@ -383,19 +383,19 @@ class AdminController extends Controller
         $school = School::where('admin_id', Auth::id())->first();
         
         if (!$school) {
-            return back()->with('error', 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ Ù…Ø¯Ø±Ø³Ø© Ù„Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø·Ù„Ø§Ø¨');
+            return back()->with('error', 'ليس لديك مدرسة لإدارة الطلاب');
         }
         
         // Find the student
         $student = \App\Models\Student::find($student);
         
         if (!$student) {
-            return back()->with('error', 'Ø§Ù„Ø·Ø§Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯');
+            return back()->with('error', 'الطالب غير موجود');
         }
         
         // Check if the student belongs to the admin's school
         if ($student->school_id !== $school->id) {
-            return back()->with('error', 'Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ø·Ø§Ù„Ø¨');
+            return back()->with('error', 'ليس لديك صلاحية حذف هذا الطالب');
         }
         
         // Detach the student from all classrooms first
@@ -404,7 +404,7 @@ class AdminController extends Controller
         // Delete the student
         $student->delete();
         
-        return back()->with('success', 'ØªÙ… Ø­Ø°Ù Ø§Ù„Ø·Ø§Ù„Ø¨ Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تم حذف الطالب بنجاح');
     }
     
     /**
@@ -423,13 +423,13 @@ class AdminController extends Controller
         $user = Auth::user();
 
         if (!Hash::check($request->current_password, $user->password)) {
-            return back()->with('error', 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØºÙŠØ± ØµØ­ÙŠØ­Ø©');
+            return back()->with('error', 'كلمة المرور الحالية غير صحيحة');
         }
 
         $user->password = Hash::make($request->password);
         $user->save();
 
-        return back()->with('success', 'ØªÙ… ØªØºÙŠÙŠØ± ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تم تغيير كلمة المرور بنجاح');
     }
 
     /**
@@ -448,7 +448,7 @@ class AdminController extends Controller
         $user->username = $request->username;
         $user->save();
 
-        return back()->with('success', 'ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø¨Ù†Ø¬Ø§Ø­');
+        return back()->with('success', 'تم تحديث اسم المستخدم بنجاح');
     }
 
     /**
@@ -467,13 +467,13 @@ class AdminController extends Controller
         $user = Auth::user();
 
         if (!Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØºÙŠØ± ØµØ­ÙŠØ­Ø©.']);
+            return back()->withErrors(['current_password' => 'كلمة المرور الحالية غير صحيحة.']);
         }
 
         $user->name = $request->name;
         $user->save();
 
-        return back()->with('success', 'ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø§Ø³Ù… Ø¨Ù†Ø¬Ø§Ø­.');
+        return back()->with('success', 'تم تحديث الاسم بنجاح.');
     }
 
     /**

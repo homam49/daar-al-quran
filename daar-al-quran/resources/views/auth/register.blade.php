@@ -62,7 +62,7 @@
                             <label for="phone" class="form-label">رقم الهاتف</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-phone"></i></span>
-                                <input id="phone" type="text" class="form-control @error('phone') is-invalid @enderror" name="phone" value="{{ old('phone') }}" required>
+                                <input id="phone" type="text" class="form-control @error('phone') is-invalid @enderror" name="phone" value="{{ old('phone') }}" required placeholder="07XXXXXXX">
                             </div>
                             @error('phone')
                                 <span class="invalid-feedback d-block" role="alert">

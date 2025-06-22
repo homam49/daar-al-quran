@@ -37,8 +37,11 @@ class SchoolDeletionController extends Controller
         // Validate request
         $request->validate([
             'school_id' => 'required|exists:schools,id',
-            'confirmation_code' => 'required|string',
-            'confirmation_text' => 'required|string|in:DELETE',
+            'deletion_code' => 'required|string',
+        ], [
+            'school_id.required' => 'رمز المدرسة مطلوب',
+            'school_id.exists' => 'رمز المدرسة غير صحيح',
+            'deletion_code.required' => 'رمز الحذف مطلوب',
         ]);
         
         // Find the school
@@ -56,8 +59,7 @@ class SchoolDeletionController extends Controller
             return redirect()->route('admin.dashboard')->with('success', "تم حذف المدرسة '$schoolName' بنجاح");
         }
 
-        if ($school->deletion_code !== $request->confirmation_code) {
-            // Use flashed session error instead of validation error
+        if ($school->deletion_code !== $request->deletion_code) {
             return back()->with('error', 'رمز الحذف غير صحيح');
         }
 

@@ -45,8 +45,11 @@ class RegisterController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:50|unique:users|alpha_dash',
             'email' => 'required|string|email:rfc,dns|max:255|unique:users',
+            'phone' => ['required', 'regex:/^07[7-9][0-9]{7}$/'],
             'password' => 'required|string|min:8|confirmed',
             'role_id' => 'required|exists:roles,id',
+        ], [
+            'phone.regex' => 'رقم الهاتف يجب أن يكون رقم أردني صحيح (07XXXXXXX)'
         ]);
 
         $user = User::create([

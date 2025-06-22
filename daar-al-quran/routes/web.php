@@ -279,30 +279,30 @@ Route::prefix('student')->group(function () {
         // Profile completion routes
         Route::get('/complete-profile', [StudentAuthController::class, 'showCompleteProfileForm'])->name('student.complete-profile');
         Route::post('/update-profile', [StudentAuthController::class, 'updateProfile'])->name('student.update-profile');
-        
+    
         // Protected routes - need both firstlogin and verified middleware
         Route::middleware(['student.firstlogin', 'student.verified'])->group(function () {
-            Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('student.dashboard');
-            Route::get('/attendance', [StudentController::class, 'attendance'])->name('student.attendance');
-            
+        Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('student.dashboard');
+        Route::get('/attendance', [StudentController::class, 'attendance'])->name('student.attendance');
+        
             // Profile routes - using UnifiedProfileController
             Route::get('/profile', [UnifiedProfileController::class, 'showStudent'])->name('student.profile');
             Route::put('/profile/info', [UnifiedProfileController::class, 'updateStudentInfo'])->name('student.profile.info.update');
             Route::post('/profile/password', [UnifiedProfileController::class, 'updateStudentPassword'])->name('student.profile.password.update');
-            
-            // Messages routes
-            Route::get('/messages', [StudentController::class, 'messages'])->name('student.messages');
+        
+        // Messages routes
+        Route::get('/messages', [StudentController::class, 'messages'])->name('student.messages');
             
             // Student compose message routes
             Route::get('/messages/compose', [StudentController::class, 'composeMessage'])->name('student.messages.compose');
             Route::post('/messages/send', [StudentController::class, 'sendMessage'])->name('student.messages.send');
             
             // View specific message
-            Route::get('/messages/{id}', [StudentController::class, 'viewMessage'])->name('student.messages.view');
-            Route::post('/messages/{id}/mark-read', [StudentController::class, 'markMessageRead'])->name('student.messages.mark-read');
-            
-            // Classroom routes
-            Route::get('/classrooms', [StudentController::class, 'classrooms'])->name('student.classrooms');
+        Route::get('/messages/{id}', [StudentController::class, 'viewMessage'])->name('student.messages.view');
+        Route::post('/messages/{id}/mark-read', [StudentController::class, 'markMessageRead'])->name('student.messages.mark-read');
+        
+        // Classroom routes
+        Route::get('/classrooms', [StudentController::class, 'classrooms'])->name('student.classrooms');
         });
     });
 });
