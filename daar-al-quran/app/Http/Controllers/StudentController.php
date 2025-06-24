@@ -134,67 +134,9 @@ class StudentController extends Controller
     public function attendance(Request $request)
     {
         $student = Auth::guard('student')->user();
+        $data = $this->studentService->getAttendanceData($student, $request->all());
         
-        $query = $student->attendances()->with(['classSession.classRoom']);
-        
-        // Filter by classroom if provided
-        if ($request->classroom_id) {
-            $query->whereHas('classSession', function($q) use ($request) {
-                $q->where('classroom_id', $request->classroom_id);
-            });
-        }
-        
-        // Filter by month if provided
-        if ($request->month) {
-            $query->whereMonth('created_at', $request->month);
-        }
-        
-        if ($request->year) {
-            $query->whereYear('created_at', $request->year);
-        }
-        
-        $attendances = $query->orderBy('created_at', 'desc')->paginate(20);
-        
-        // Calculate statistics for all attendances (not just filtered ones)
-        $allAttendances = $student->attendances;
-        $present_count = $allAttendances->where('status', 'present')->count();
-        $late_count = $allAttendances->where('status', 'late')->count();
-        $absent_count = $allAttendances->where('status', 'absent')->count();
-        $total_count = $allAttendances->count();
-        
-        $attendance_percentage = $total_count > 0 
-            ? round((($present_count + $late_count) / $total_count) * 100, 1) 
-            : 0;
-        
-        // Get student's classrooms for filter
-        $classrooms = $student->classRooms;
-        
-        // Months for filter
-        $months = [
-            '1' => 'يناير',
-            '2' => 'فبراير', 
-            '3' => 'مارس',
-            '4' => 'أبريل',
-            '5' => 'مايو',
-            '6' => 'يونيو',
-            '7' => 'يوليو',
-            '8' => 'أغسطس',
-            '9' => 'سبتمبر',
-            '10' => 'أكتوبر',
-            '11' => 'نوفمبر',
-            '12' => 'ديسمبر'
-        ];
-        
-        return view('student.attendance', compact(
-            'student', 
-            'attendances', 
-            'present_count', 
-            'late_count', 
-            'absent_count', 
-            'attendance_percentage',
-            'classrooms',
-            'months'
-        ));
+        return view('student.attendance', $data);
     }
 
     /**

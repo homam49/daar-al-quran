@@ -132,4 +132,63 @@ class StudentService
             'unread_messages' => $student->messages()->whereNull('read_at')->count(),
         ];
     }
+
+    /**
+     * Get attendance data for student view.
+     *
+     * @param Student $student
+     * @param array $filters
+     * @return array
+     */
+    public function getAttendanceData(Student $student, array $filters = []): array
+    {
+        $query = $student->attendances()->with(['classSession.classRoom']);
+        
+        // Filter by classroom if provided
+        if (!empty($filters['classroom_id'])) {
+            $query->whereHas('classSession', function($q) use ($filters) {
+                $q->where('classroom_id', $filters['classroom_id']);
+            });
+        }
+        
+        // Filter by month if provided
+        if (!empty($filters['month'])) {
+            $query->whereMonth('created_at', $filters['month']);
+        }
+        
+        if (!empty($filters['year'])) {
+            $query->whereYear('created_at', $filters['year']);
+        }
+        
+        $attendances = $query->orderBy('created_at', 'desc')->paginate(20);
+        
+        // Calculate statistics for all attendances
+        $allAttendances = $student->attendances;
+        $present_count = $allAttendances->where('status', 'present')->count();
+        $late_count = $allAttendances->where('status', 'late')->count();
+        $absent_count = $allAttendances->where('status', 'absent')->count();
+        $total_count = $allAttendances->count();
+        
+        $attendance_percentage = $total_count > 0 
+            ? round((($present_count + $late_count) / $total_count) * 100, 1) 
+            : 0;
+        
+        // Months for filter
+        $months = [
+            '1' => 'يناير', '2' => 'فبراير', '3' => 'مارس', '4' => 'أبريل',
+            '5' => 'مايو', '6' => 'يونيو', '7' => 'يوليو', '8' => 'أغسطس',
+            '9' => 'سبتمبر', '10' => 'أكتوبر', '11' => 'نوفمبر', '12' => 'ديسمبر'
+        ];
+        
+        return [
+            'student' => $student,
+            'attendances' => $attendances,
+            'present_count' => $present_count,
+            'late_count' => $late_count,
+            'absent_count' => $absent_count,
+            'attendance_percentage' => $attendance_percentage,
+            'classrooms' => $student->classRooms,
+            'months' => $months
+        ];
+    }
 } 

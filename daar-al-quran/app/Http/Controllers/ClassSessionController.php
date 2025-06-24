@@ -4,21 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\ClassRoom;
 use App\Models\ClassSession;
-use App\Models\Attendance;
-use App\Models\Message;
+use App\Services\ClassSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ClassSessionController extends Controller
 {
+    private $sessionService;
+
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(ClassSessionService $sessionService)
     {
         $this->middleware(['auth', 'role:teacher', 'approved']);
+        $this->sessionService = $sessionService;
     }
 
     /**
@@ -47,39 +49,12 @@ class ClassSessionController extends Controller
      */
     public function create($classroomId)
     {
-        $classroom = ClassRoom::with('students')->findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
+        try {
+            $data = $this->sessionService->getSessionCreationData($classroomId);
+            return view('teacher.sessions.create', $data);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-        
-        // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
-        $currentDay = now()->dayOfWeek;
-        
-        // Find a schedule for the current day
-        $schedule = $classroom->schedules()
-            ->where('day', $currentDay)
-            ->first();
-        
-        // Default start and end times if no schedule is found
-        $startTime = '08:00';
-        $endTime = '09:00';
-        
-        // If a schedule is found for today, use its times
-        if ($schedule) {
-            $startTime = $schedule->start_time->format('H:i');
-            $endTime = $schedule->end_time->format('H:i');
-        } else {
-            // If no schedule for today, try to find any schedule for this class
-            $anySchedule = $classroom->schedules()->first();
-            if ($anySchedule) {
-                $startTime = $anySchedule->start_time->format('H:i');
-                $endTime = $anySchedule->end_time->format('H:i');
-            }
-        }
-        
-        return view('teacher.sessions.create', compact('classroom', 'startTime', 'endTime'));
     }
 
     /**
