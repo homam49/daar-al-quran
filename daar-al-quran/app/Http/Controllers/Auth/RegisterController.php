@@ -58,7 +58,7 @@ class RegisterController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role_id' => $request->role_id,
-            'is_approved' => false, // Need approval by moderator after email verification
+            'is_approved' => true, // Auto-approve users by default for better UX
             'email_verified_at' => null, // Explicitly set to null to require verification
         ]);
 

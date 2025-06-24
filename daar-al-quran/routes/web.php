@@ -5,19 +5,11 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ModeratorController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\SchoolController;
-use App\Http\Controllers\ClassRoomController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\ClassSessionController;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\MessageController;
-use App\Http\Controllers\StudentAuthController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SchoolDeletionController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UnifiedProfileController;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,23 +60,6 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/address', [UnifiedProfileController::class, 'updateAddress'])->name('profile.update.address');
     Route::put('/profile/info', [UnifiedProfileController::class, 'updatePersonalInfo'])->name('profile.update.info');
 });
-
-// Student authentication
-Route::get('/student/login', [StudentAuthController::class, 'showLoginForm'])->name('student.login');
-Route::post('/student/login', [StudentAuthController::class, 'login']);
-Route::post('/student/logout', [StudentAuthController::class, 'logout'])->name('student.logout');
-
-// Student Email Verification Routes
-Route::get('/student/email/verify', [App\Http\Controllers\Auth\StudentVerificationController::class, 'show'])->name('student.verification.notice');
-Route::get('/student/email/verify/{id}/{hash}', [App\Http\Controllers\Auth\StudentVerificationController::class, 'verify'])->name('student.verification.verify');
-Route::post('/student/email/resend', [App\Http\Controllers\Auth\StudentVerificationController::class, 'resend'])->name('student.verification.resend');
-Route::post('/student/email/update', [App\Http\Controllers\Auth\StudentVerificationController::class, 'updateEmail'])->name('student.verification.update-email');
-
-// Student Password Reset Routes
-Route::get('/student/password/reset', [App\Http\Controllers\Auth\StudentForgotPasswordController::class, 'showLinkRequestForm'])->name('student.password.request');
-Route::post('/student/password/email', [App\Http\Controllers\Auth\StudentForgotPasswordController::class, 'sendResetLinkEmail'])->name('student.password.email');
-Route::get('/student/password/reset/{token}', [App\Http\Controllers\Auth\StudentResetPasswordController::class, 'showResetForm'])->name('student.password.reset');
-Route::post('/student/password/reset', [App\Http\Controllers\Auth\StudentResetPasswordController::class, 'reset'])->name('student.password.update');
 
 // Moderator routes
 Route::middleware(['auth', 'role:moderator', 'verified'])->prefix('moderator')->group(function () {
@@ -139,17 +114,13 @@ Route::middleware(['auth', 'role:admin', 'approved', 'verified'])->prefix('admin
     Route::put('/schools/{school}', [SchoolController::class, 'update'])->name('admin.schools.update');
     Route::delete('/schools/{school}', [SchoolController::class, 'destroy'])->name('admin.schools.delete');
     
-    // Redirect old schools index route to dashboard
+    // Redirect old schools routes to dashboard
     Route::get('/schools', function() {
         return redirect()->route('admin.dashboard');
     });
-    
-    // Redirect old school show route to dashboard (should be after specific /schools/* routes)
     Route::get('/schools/{school}', function() {
         return redirect()->route('admin.dashboard');
     });
-
-    // Also redirect the confirm delete route
     Route::get('/schools/{school}/confirm-delete', function() {
         return redirect()->route('admin.dashboard');
     });
@@ -180,129 +151,6 @@ Route::middleware(['auth', 'role:admin', 'approved', 'verified'])->prefix('admin
     Route::put('/profile/name', [AdminController::class, 'updateName'])->name('admin.name.update');
 });
 
-// Teacher routes
-Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('teacher')->group(function () {
-    Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('teacher.dashboard');
-    Route::get('/schools', [TeacherController::class, 'schools'])->name('teacher.schools');
-    Route::get('/join-school', [TeacherController::class, 'showJoinSchoolForm'])->name('teacher.join-school.form');
-    Route::post('/join-school', [TeacherController::class, 'joinSchool'])->name('teacher.join-school.store');
-    
-    // Profile - redirect to unified profile
-    Route::get('/profile', function() {
-        return redirect()->route('profile.show');
-    })->name('teacher.profile');
-    Route::post('/profile/password/update', [TeacherController::class, 'updatePassword'])->name('teacher.password.update');
-    Route::post('/profile/name/update', [TeacherController::class, 'updateName'])->name('teacher.name.update');
-    
-    // Reports routes
-    Route::get('/reports', [TeacherController::class, 'reports'])->name('teacher.reports');
-    Route::get('/reports/attendance', [TeacherController::class, 'attendanceReport'])->name('teacher.reports.attendance');
-    Route::get('/reports/performance', [TeacherController::class, 'performanceReport'])->name('teacher.reports.performance');
-    Route::get('/reports/export/{type}', [TeacherController::class, 'exportReport'])->name('teacher.reports.export');
-    Route::get('/classrooms/{classroom}/students/list', [TeacherController::class, 'getStudentsList'])->name('teacher.classroom.students.list');
-    
-    // Student routes
-    Route::get('/students', [StudentController::class, 'allStudents'])->name('students.index');
-    
-    // Session routes
-    Route::get('/sessions', [ClassSessionController::class, 'allSessions'])->name('sessions.index');
-    
-    // Classroom routes
-    Route::resource('classrooms', ClassRoomController::class);
-    Route::post('/classrooms/broadcast-message', [ClassRoomController::class, 'broadcastMessage'])->name('classrooms.broadcast-message');
-    
-    // Simplify student management - remove redundant routes
-    // Only keep the route for displaying students in a classroom
-    Route::get('/classrooms/{classroom}/students', [StudentController::class, 'index'])->name('teacher.classroom.students');
-    
-    // Session management
-    Route::get('/classrooms/{classroom}/sessions', [ClassSessionController::class, 'index'])->name('classroom.sessions.index');
-    Route::get('/classrooms/{classroom}/sessions/create', [ClassSessionController::class, 'create'])->name('classroom.sessions.create');
-    Route::post('/classrooms/{classroom}/sessions', [ClassSessionController::class, 'store'])->name('classroom.sessions.store');
-    Route::get('/classrooms/{classroom}/sessions/{session}', [ClassSessionController::class, 'show'])->name('classroom.sessions.show');
-    Route::get('/classrooms/{classroom}/sessions/{session}/edit', [ClassSessionController::class, 'edit'])->name('classroom.sessions.edit');
-    Route::put('/classrooms/{classroom}/sessions/{session}', [ClassSessionController::class, 'update'])->name('classroom.sessions.update');
-    Route::delete('/classrooms/{classroom}/sessions/{session}', [ClassSessionController::class, 'destroy'])->name('classroom.sessions.destroy');
-    
-    // Add the missing route for removing students from classrooms
-    Route::delete('/classroom/{classroom}/students/{student}', [StudentController::class, 'removeFromClassroom'])->name('classroom.students.remove');
-    
-    // Add the missing route for adding students to classrooms
-    Route::post('/classroom/{classroom}/students/store', [StudentController::class, 'storeInClassroom'])->name('classroom.students.store');
-    
-    // Add the missing route for attaching existing students to classrooms
-    Route::post('/classroom/{classroom}/students/attach', [StudentController::class, 'attachToClassroom'])->name('classroom.students.attach');
-    
-    // Add the missing route for sending notes to students in a classroom
-    Route::post('/classroom/{classroom}/students/note', [StudentController::class, 'sendNote'])->name('classroom.students.note');
-    
-    // Attendance management
-    Route::get('/sessions/{session}/attendance', [AttendanceController::class, 'edit'])->name('sessions.attendance.edit');
-    Route::post('/sessions/{session}/attendance', [AttendanceController::class, 'update'])->name('sessions.attendance.update');
-    
-    // Messages and announcements
-    Route::get('/messages', [MessageController::class, 'index'])->name('teacher.messages');
-    Route::get('/messages/create', [MessageController::class, 'create'])->name('teacher.messages.create');
-    Route::post('/messages', [MessageController::class, 'store'])->name('teacher.messages.store');
-    Route::get('/messages/{id}/reply', [MessageController::class, 'reply'])->name('teacher.messages.reply');
-    Route::post('/messages/{id}/reply', [MessageController::class, 'sendReply'])->name('teacher.messages.send-reply');
-    Route::post('/messages/{id}/mark-read', [MessageController::class, 'markAsRead'])->name('teacher.messages.mark-read');
-});
-
-// Quick temporary route for viewing student credentials
-Route::get('/classroom/{classroom}/students/{student}/view-credentials', function(App\Models\ClassRoom $classroom, App\Models\Student $student) {
-    // Check authorization
-    if ($classroom->user_id !== auth()->id()) {
-        return redirect()->back()->with('error', 'غير مصرح بالوصول إلى هذا الفصل');
-    }
-    
-    // Simple view with credentials
-    return view('teacher.students.simple-credentials', [
-        'classroom' => $classroom,
-        'student' => $student
-    ]);
-})->name('classroom.students.view-credentials');
-
-// Student routes
-Route::prefix('student')->group(function () {
-    Route::get('/login', [StudentAuthController::class, 'showLoginForm'])->name('student.login');
-    Route::post('/login', [StudentAuthController::class, 'login'])->name('student.login.submit');
-    Route::post('/logout', [StudentAuthController::class, 'logout'])->name('student.logout');
-    
-    // Authentication required routes - grouped to apply auth:student middleware once
-    Route::middleware(['auth:student'])->group(function () {
-        // Email verification routes - accessible without completed profile
-        Route::get('/email/verify', [App\Http\Controllers\Auth\StudentVerificationController::class, 'show'])->name('student.verification.notice');
-        Route::get('/email/verify/{id}/{hash}', [App\Http\Controllers\Auth\StudentVerificationController::class, 'verify'])->name('student.verification.verify');
-        Route::post('/email/resend', [App\Http\Controllers\Auth\StudentVerificationController::class, 'resend'])->name('student.verification.resend');
-        
-        // Profile completion routes
-        Route::get('/complete-profile', [StudentAuthController::class, 'showCompleteProfileForm'])->name('student.complete-profile');
-        Route::post('/update-profile', [StudentAuthController::class, 'updateProfile'])->name('student.update-profile');
-    
-        // Protected routes - need both firstlogin and verified middleware
-        Route::middleware(['student.firstlogin', 'student.verified'])->group(function () {
-        Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('student.dashboard');
-        Route::get('/attendance', [StudentController::class, 'attendance'])->name('student.attendance');
-        
-            // Profile routes - using UnifiedProfileController
-            Route::get('/profile', [UnifiedProfileController::class, 'showStudent'])->name('student.profile');
-            Route::put('/profile/info', [UnifiedProfileController::class, 'updateStudentInfo'])->name('student.profile.info.update');
-            Route::post('/profile/password', [UnifiedProfileController::class, 'updateStudentPassword'])->name('student.profile.password.update');
-        
-        // Messages routes
-        Route::get('/messages', [StudentController::class, 'messages'])->name('student.messages');
-            
-            // Student compose message routes
-            Route::get('/messages/compose', [StudentController::class, 'composeMessage'])->name('student.messages.compose');
-            Route::post('/messages/send', [StudentController::class, 'sendMessage'])->name('student.messages.send');
-            
-            // View specific message
-        Route::get('/messages/{id}', [StudentController::class, 'viewMessage'])->name('student.messages.view');
-        Route::post('/messages/{id}/mark-read', [StudentController::class, 'markMessageRead'])->name('student.messages.mark-read');
-        
-        // Classroom routes
-        Route::get('/classrooms', [StudentController::class, 'classrooms'])->name('student.classrooms');
-        });
-    });
-});
+// Include modular route files
+require __DIR__.'/modules/teacher.php';
+require __DIR__.'/modules/student.php';

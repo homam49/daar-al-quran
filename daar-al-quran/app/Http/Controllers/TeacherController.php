@@ -62,6 +62,24 @@ class TeacherController extends Controller
         // Count sessions
         $sessions_count = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))->count();
         
+        // Get memorization statistics
+        $teacherStudentIds = Student::whereHas('classRooms', function($query) use ($classRooms) {
+            $query->whereIn('class_rooms.id', $classRooms->pluck('id'));
+        })->pluck('id');
+        
+        $memorization_records = \App\Models\MemorizationProgress::whereIn('student_id', $teacherStudentIds)->get();
+        
+        $memorization_stats = [
+            'total_memorized' => $memorization_records->where('status', 'memorized')->count(),
+            'in_progress' => $memorization_records->where('status', 'in_progress')->count(),
+            'total_students_tracking' => $memorization_records->unique('student_id')->count(),
+            'pages_memorized' => $memorization_records->where('type', 'page')->where('status', 'memorized')->count(),
+            'surahs_memorized' => $memorization_records->where('type', 'surah')->where('status', 'memorized')->count(),
+            'pages_in_progress' => $memorization_records->where('type', 'page')->where('status', 'in_progress')->count(),
+            'surahs_in_progress' => $memorization_records->where('type', 'surah')->where('status', 'in_progress')->count(),
+            'total_content_items' => $memorization_records->count(),
+        ];
+        
         // Get today's sessions
         $today = now()->format('Y-m-d');
         $today_sessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))
@@ -101,6 +119,7 @@ class TeacherController extends Controller
             'classrooms_count', 
             'students_count', 
             'sessions_count',
+            'memorization_stats',
             'today_sessions',
             'recent_sessions',
             'classRooms',

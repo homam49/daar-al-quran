@@ -54,6 +54,7 @@
                             <th>المدرسة</th>
                             <th>معدل الحضور</th>
                             <th>تاريخ الإضافة</th>
+                            <th>الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -95,6 +96,11 @@
                                 </div>
                             </td>
                             <td>{{ $student->created_at->format('Y-m-d') }}</td>
+                            <td class="text-center">
+                                <a href="{{ route('teacher.memorization.show', $student->id) }}" class="btn btn-sm btn-success" title="متابعة حفظ القرآن">
+                                    <i class="fas fa-book"></i> 📖
+                                </a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>

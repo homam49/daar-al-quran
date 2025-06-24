@@ -211,7 +211,7 @@
                 </div>
                 @endif
                 
-                <div class="row mb-4">
+                <!-- <div class="row mb-4">
                     <div class="col-md-3 text-md-end">
                         <strong>حالة البريد الإلكتروني:</strong>
                     </div>
@@ -231,7 +231,7 @@
                             @endif
                         @endif
                     </div>
-                </div>
+                </div> -->
                 
                 <div class="row mb-4">
                     <div class="col-md-3 text-md-end">

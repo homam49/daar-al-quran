@@ -180,7 +180,7 @@
             
             <h5 class="mb-3">معلومات الحساب</h5>
             
-            <div class="row mb-3">
+            <!-- <div class="row mb-3">
                 <div class="col-md-3 text-md-end">
                     <strong>حالة البريد الإلكتروني:</strong>
                 </div>
@@ -192,7 +192,7 @@
                         <span class="badge bg-warning text-dark">غير مؤكد</span>
                     @endif
                 </div>
-            </div>
+            </div> -->
             
             <div class="row mb-3">
                 <div class="col-md-3 text-md-end">

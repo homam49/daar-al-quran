@@ -7,6 +7,9 @@ use App\Models\ClassRoom;
 use App\Models\School;
 use App\Models\StudentClassRoom;
 use App\Models\Message;
+use App\Services\StudentService;
+use App\Http\Requests\StoreStudentRequest;
+use App\Http\Requests\UpdateStudentRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -14,6 +17,18 @@ use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
+    protected $studentService;
+
+    /**
+     * Create a new controller instance.
+     */
+    public function __construct(StudentService $studentService)
+    {
+        $this->middleware(['auth'])->except(['dashboard', 'attendance', 'messages', 'viewMessage', 'classrooms', 'markMessageRead', 'composeMessage', 'sendMessage']);
+        $this->middleware(['auth:student'])->only(['dashboard', 'attendance', 'messages', 'viewMessage', 'classrooms', 'markMessageRead', 'composeMessage', 'sendMessage']);
+        $this->studentService = $studentService;
+    }
+
     /**
      * Display a listing of students for a specific classroom.
      *
@@ -22,11 +37,8 @@ class StudentController extends Controller
      */
     public function index(ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-
+        $this->authorize('view', $classroom);
+        
         $students = $classroom->students;
         
         return view('teacher.students.index', compact('classroom', 'students'));
@@ -40,17 +52,9 @@ class StudentController extends Controller
      */
     public function create(ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $this->authorize('view', $classroom);
 
-        // Get existing students in the SAME school that aren't already in this classroom
-        $existingStudents = Student::where('school_id', $classroom->school_id)
-            ->whereDoesntHave('classRooms', function ($query) use ($classroom) {
-                $query->where('class_rooms.id', $classroom->id);
-            })
-            ->get();
+        $existingStudents = $this->studentService->getAvailableStudents($classroom);
 
         return view('teacher.students.create', compact('classroom', 'existingStudents'));
     }
@@ -62,80 +66,28 @@ class StudentController extends Controller
      * @param  \App\Models\ClassRoom  $classroom
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request, ClassRoom $classroom)
+    public function store(StoreStudentRequest $request, ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-
-        // Check if we're adding an existing student
-        if ($request->has('existing_student_id')) {
-            $request->validate([
-                'existing_student_id' => 'required|exists:students,id',
-            ]);
-
-            $student = Student::findOrFail($request->existing_student_id);
-
-            // Check if the student is in the same school
-            if ($student->school_id != $classroom->school_id) {
-                return back()->with('error', 'الطالب ليس من نفس المدرسة');
+        try {
+            if ($request->has('existing_student_id')) {
+                // Add existing student to classroom
+                $student = Student::findOrFail($request->existing_student_id);
+                $this->studentService->addStudentToClassroom($student, $classroom);
+                
+                return redirect()->route('teacher.classroom.students', $classroom)
+                    ->with('success', 'تمت إضافة الطالب إلى الفصل بنجاح');
+            } else {
+                // Create new student
+                $student = $this->studentService->createStudent($request->validated(), $classroom);
+                
+                return redirect()->route('teacher.classroom.students', $classroom)
+                    ->with('success', 'تم إنشاء الطالب وإضافته إلى الفصل بنجاح')
+                    ->with('password', $student->username)
+                    ->with('username', $student->username);
             }
-
-            // Check if the student is already in the class
-            if ($classroom->students->contains($student->id)) {
-                return back()->with('error', 'الطالب موجود بالفعل في هذا الفصل');
-            }
-
-            // Add the student to the class
-            StudentClassRoom::create([
-                'student_id' => $student->id,
-                'class_room_id' => $classroom->id,
-            ]);
-
-            return redirect()->route('teacher.classroom.students', $classroom)
-                ->with('success', 'تمت إضافة الطالب إلى الفصل بنجاح');
+        } catch (\Exception $e) {
+            return back()->with('error', 'حدث خطأ: ' . $e->getMessage());
         }
-
-        // Otherwise, create a new student
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'birth_year' => 'required|numeric|digits:4',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'email' => 'nullable|email|unique:students,email',
-        ]);
-
-        // Generate a random 6-character credential (uppercase) to be used for both username and password
-        $credential = strtoupper(Str::random(6));
-        
-        // Create the student
-        $student = Student::create([
-            'first_name' => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name' => $request->last_name,
-            'birth_year' => $request->birth_year,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'email' => $request->email,
-            'username' => $credential,
-            'password' => $credential, // Will be hashed by the model's setPasswordAttribute method
-            'school_id' => $classroom->school_id,
-            'first_login' => true,
-        ]);
-
-        // Add the student to the class
-        StudentClassRoom::create([
-            'student_id' => $student->id,
-            'class_room_id' => $classroom->id,
-        ]);
-
-        return redirect()->route('teacher.classroom.students', $classroom)
-            ->with('success', 'تم إنشاء الطالب وإضافته إلى الفصل بنجاح')
-            ->with('password', $credential)
-            ->with('username', $credential);
     }
 
     /**
@@ -146,22 +98,7 @@ class StudentController extends Controller
     public function dashboard()
     {
         $student = Auth::guard('student')->user();
-        
-        // Get classroom count
-        $classroom_count = $student->classRooms->count();
-        
-        // Calculate attendance statistics
-        $attendances = $student->attendances;
-        $attendance_count = $attendances->whereIn('status', ['present', 'late'])->count();
-        $present_count = $attendances->where('status', 'present')->count();
-        $late_count = $attendances->where('status', 'late')->count();
-        $absent_count = $attendances->where('status', 'absent')->count();
-        
-        // Calculate attendance percentage
-        $total_attendances = $attendances->count();
-        $attendance_percentage = $total_attendances > 0 
-            ? round(($attendance_count / $total_attendances) * 100) 
-            : 0;
+        $stats = $this->studentService->getDashboardStats($student);
         
         // Get today's sessions
         $today_sessions = \App\Models\ClassSession::whereIn('class_room_id', $student->classRooms->pluck('id'))
@@ -169,27 +106,23 @@ class StudentController extends Controller
             ->orderBy('start_time')
             ->get();
         
-        // Get unread messages count
-        $unread_messages = $student->messages()->whereNull('read_at')->count();
-        
         // Get recent messages
         $messages = $student->messages()
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
             
-        return view('student.dashboard', compact(
-            'student',
-            'classroom_count',
-            'attendance_count',
-            'present_count',
-            'late_count',
-            'absent_count',
-            'attendance_percentage',
-            'today_sessions',
-            'unread_messages',
-            'messages'
-        ));
+        // Get memorized count for memorization card
+        $memorizedCount = \App\Models\MemorizationProgress::where('student_id', $student->id)
+            ->where('status', 'memorized')
+            ->count();
+            
+        return view('student.dashboard', array_merge($stats, [
+            'student' => $student,
+            'today_sessions' => $today_sessions,
+            'messages' => $messages,
+            'memorizedCount' => $memorizedCount
+        ]));
     }
 
     /**
@@ -200,47 +133,46 @@ class StudentController extends Controller
      */
     public function attendance(Request $request)
     {
-        $student = auth('student')->user();
+        $student = Auth::guard('student')->user();
         
-        // Get the student's classrooms
-        $classrooms = $student->classRooms;
-        
-        // Build query for attendances
-        $query = $student->attendances()->with(['classSession', 'classSession.classRoom']);
+        $query = $student->attendances()->with(['classSession.classRoom']);
         
         // Filter by classroom if provided
-        if ($request->has('classroom_id') && $request->classroom_id) {
-            $query->whereHas('classSession', function ($q) use ($request) {
-                $q->where('class_room_id', $request->classroom_id);
+        if ($request->classroom_id) {
+            $query->whereHas('classSession', function($q) use ($request) {
+                $q->where('classroom_id', $request->classroom_id);
             });
         }
         
         // Filter by month if provided
-        if ($request->has('month') && $request->month) {
-            $month = $request->month;
-            $query->whereHas('classSession', function ($q) use ($month) {
-                $q->whereMonth('session_date', $month);
-            });
+        if ($request->month) {
+            $query->whereMonth('created_at', $request->month);
         }
         
-        // Get attendances with pagination
-        $attendances = $query->orderBy('created_at', 'desc')->paginate(15);
+        if ($request->year) {
+            $query->whereYear('created_at', $request->year);
+        }
         
-        // Calculate statistics
-        $present_count = $student->attendances->where('status', 'present')->count();
-        $late_count = $student->attendances->where('status', 'late')->count();
-        $absent_count = $student->attendances->where('status', 'absent')->count();
+        $attendances = $query->orderBy('created_at', 'desc')->paginate(20);
         
-        // Calculate attendance percentage
-        $total_attendances = $present_count + $late_count + $absent_count;
-        $attendance_percentage = $total_attendances > 0 
-            ? round((($present_count + $late_count) / $total_attendances) * 100) 
+        // Calculate statistics for all attendances (not just filtered ones)
+        $allAttendances = $student->attendances;
+        $present_count = $allAttendances->where('status', 'present')->count();
+        $late_count = $allAttendances->where('status', 'late')->count();
+        $absent_count = $allAttendances->where('status', 'absent')->count();
+        $total_count = $allAttendances->count();
+        
+        $attendance_percentage = $total_count > 0 
+            ? round((($present_count + $late_count) / $total_count) * 100, 1) 
             : 0;
         
-        // Define months for filter
+        // Get student's classrooms for filter
+        $classrooms = $student->classRooms;
+        
+        // Months for filter
         $months = [
             '1' => 'يناير',
-            '2' => 'فبراير',
+            '2' => 'فبراير', 
             '3' => 'مارس',
             '4' => 'أبريل',
             '5' => 'مايو',
@@ -254,13 +186,13 @@ class StudentController extends Controller
         ];
         
         return view('student.attendance', compact(
-            'student',
-            'attendances',
-            'classrooms',
-            'present_count',
-            'late_count',
-            'absent_count',
+            'student', 
+            'attendances', 
+            'present_count', 
+            'late_count', 
+            'absent_count', 
             'attendance_percentage',
+            'classrooms',
             'months'
         ));
     }
@@ -272,52 +204,8 @@ class StudentController extends Controller
      */
     public function classrooms()
     {
-        $student = auth('student')->user();
+        $student = Auth::guard('student')->user();
         $classrooms = $student->classRooms;
-        
-        // Prepare schedule information for each classroom
-        foreach ($classrooms as $classroom) {
-            // Get classroom schedules
-            $schedules = \App\Models\ClassSchedule::where('class_room_id', $classroom->id)
-                ->orderBy('day')
-                ->orderBy('start_time')
-                ->get();
-                
-            // Format days and times for display
-            $classScheduleInfo = [];
-            if ($schedules->count() > 0) {
-                // Get days and format them
-                $daysMap = [
-                    'Sunday' => 'الأحد',
-                    'Monday' => 'الاثنين',
-                    'Tuesday' => 'الثلاثاء',
-                    'Wednesday' => 'الأربعاء',
-                    'Thursday' => 'الخميس',
-                    'Friday' => 'الجمعة',
-                    'Saturday' => 'السبت'
-                ];
-                
-                $days = [];
-                $times = [];
-                
-                foreach ($schedules as $schedule) {
-                    $days[] = $daysMap[$schedule->day] ?? $schedule->day;
-                    
-                    // Format time
-                    $startTime = date('g:i A', strtotime($schedule->start_time));
-                    $endTime = date('g:i A', strtotime($schedule->end_time));
-                    $times[] = "{$startTime} - {$endTime}";
-                }
-                
-                $classroom->days = $days;
-                $classroom->start_time = $schedules->first()->start_time ?? null;
-                $classroom->end_time = $schedules->first()->end_time ?? null;
-                $classroom->scheduleInfo = [
-                    'days' => $days,
-                    'times' => array_unique($times)
-                ];
-            }
-        }
         
         return view('student.classrooms', compact('student', 'classrooms'));
     }
@@ -330,68 +218,17 @@ class StudentController extends Controller
      */
     public function messages(Request $request)
     {
-        $student = auth('student')->user();
+        $student = Auth::guard('student')->user();
         
-        // Get the filter parameter from the request
-        $filter = $request->input('filter', 'all'); // Default to 'all' if not specified
+        $query = $student->messages()->with('sender');
         
-        // Get incoming messages (from teachers)
-        $incomingQuery = $student->messages()
-            ->where('sender_type', 'teacher');
-        
-        // Get outgoing messages (sent by this student)
-        $outgoingQuery = Message::where('sender_id', $student->id)
-            ->where('sender_type', 'student');
-        
-        // Apply filters
-        $incomingMessages = collect();
-        $outgoingMessages = collect();
-        
-        if ($filter === 'all' || $filter === 'received') {
-            $incomingMessages = $incomingQuery->get();
+        if ($request->unread) {
+            $query->whereNull('read_at');
         }
         
-        if ($filter === 'all' || $filter === 'sent') {
-            $outgoingMessages = $outgoingQuery->get();
-        }
+        $messages = $query->orderBy('created_at', 'desc')->paginate(15);
         
-        // For read/unread filtering
-        if ($request->has('status')) {
-            if ($request->status === 'unread') {
-                $incomingMessages = $incomingMessages->whereNull('read_at');
-                // No outgoing messages in this case (all outgoing are considered read)
-                $outgoingMessages = collect();
-            } elseif ($request->status === 'read') {
-                $incomingMessages = $incomingMessages->whereNotNull('read_at');
-            }
-        }
-        
-        // Combine and sort
-        $allMessages = $incomingMessages->concat($outgoingMessages);
-        
-        // Sort by date
-        if ($request->has('sort') && $request->sort === 'oldest') {
-            $allMessages = $allMessages->sortBy('created_at');
-        } else {
-            $allMessages = $allMessages->sortByDesc('created_at');
-        }
-        
-        // Paginate the collection using the proper method for collections
-        $page = request('page', 1); // Get the current page from the request
-        $perPage = 15;
-        $offset = ($page - 1) * $perPage;
-        
-        $paginatedItems = $allMessages->slice($offset, $perPage)->values();
-        
-        $messages = new \Illuminate\Pagination\LengthAwarePaginator(
-            $paginatedItems,
-            $allMessages->count(),
-            $perPage,
-            $page,
-            ['path' => request()->url(), 'query' => request()->query()]
-        );
-        
-        return view('student.messages', compact('student', 'messages', 'filter'));
+        return view('student.messages.index', compact('student', 'messages'));
     }
 
     /**
@@ -402,183 +239,122 @@ class StudentController extends Controller
      */
     public function viewMessage($id)
     {
-        $student = auth('student')->user();
-        $message = $student->messages()->findOrFail($id);
+        $student = Auth::guard('student')->user();
+        $message = $student->messages()->with('sender')->findOrFail($id);
         
-        // Mark message as read if it hasn't been read yet
+        // Mark as read
         if (!$message->read_at) {
-            $message->read_at = now();
-            $message->save();
+            $message->update(['read_at' => now()]);
         }
         
-        // Get other messages for sidebar
-        $otherMessages = $student->messages()
-            ->where('id', '!=', $message->id)
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
-        
-        return view('student.message-view', compact('student', 'message', 'otherMessages'));
+        return view('student.messages.view', compact('student', 'message'));
     }
 
     /**
-     * Store a newly created student in a classroom.
+     * Show compose message form.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function composeMessage()
+    {
+        $student = Auth::guard('student')->user();
+        
+        // Get teachers from student's classrooms
+        $teachers = \App\Models\User::whereIn('id', 
+            $student->classRooms->pluck('user_id')
+        )->get();
+        
+        return view('student.messages.compose', compact('student', 'teachers'));
+    }
+
+    /**
+     * Send message from student.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  int  $classroomId
-     * @return \Illuminate\Http\RedirectResponse
+     * @return \Illuminate\Http\Response
      */
-    public function storeInClassroom(Request $request, $classroomId)
+    public function sendMessage(Request $request)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-        
         $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'birth_year' => 'required|numeric|min:' . (date('Y') - 100) . '|max:' . date('Y'),
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'teacher_id' => 'required|exists:users,id',
+            'subject' => 'required|string|max:255',
+            'content' => 'required|string|max:2000'
         ]);
         
-        // Generate a random 6-character credential (uppercase) to be used for both username and password
-        $credential = strtoupper(Str::random(6));
+        $student = Auth::guard('student')->user();
         
-        // Create the student record
-        $student = Student::create([
-            'first_name' => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name' => $request->last_name,
-            'birth_year' => $request->birth_year,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'email' => null,
-            'username' => $credential,
-            'password' => $credential,
-            'first_login' => true,
-            'school_id' => $classroom->school_id,
+        Message::create([
+            'subject' => $request->subject,
+            'content' => $request->content,
+            'sender_id' => auth('student')->id(),
+            'sender_type' => 'student',
+            'recipient_id' => $request->teacher_id,
+            'recipient_type' => 'teacher',
+            'student_id' => $student->id,
         ]);
         
-        // Attach the student to the classroom
-        $classroom->students()->attach($student->id);
-        
-        return redirect()->route('classrooms.show', $classroom->id)
-            ->with('success', 'تم إضافة الطالب بنجاح. اسم المستخدم وكلمة المرور هي: ' . $credential)
-            ->with('password', $credential)
-            ->with('username', $credential);
+        return redirect()->route('student.messages')
+            ->with('success', 'تم إرسال الرسالة بنجاح');
     }
-    
+
     /**
-     * Attach an existing student to the classroom.
+     * Mark message as read.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $classroomId
-     * @return \Illuminate\Http\RedirectResponse
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function attachToClassroom(Request $request, $classroomId)
+    public function markMessageRead($id)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
+        $student = Auth::guard('student')->user();
+        $message = $student->messages()->findOrFail($id);
         
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $message->update(['read_at' => now()]);
         
-        $request->validate([
-            'student_id' => 'required|exists:students,id',
-        ]);
-        
-        // Check if student is already in this classroom
-        if ($classroom->students->contains($request->student_id)) {
-            return back()->with('error', 'الطالب موجود بالفعل في هذا الفصل');
-        }
-        
-        // Check if student is in the same school
-        $student = Student::findOrFail($request->student_id);
-        if ($student->school_id != $classroom->school_id) {
-            return back()->with('error', 'يمكنك فقط إضافة طلاب من نفس المدرسة');
-        }
-        
-        // Add student to classroom
-        $classroom->students()->attach($request->student_id);
-        
-        return redirect()->route('classrooms.show', $classroom->id)
-            ->with('success', 'تم إضافة الطالب إلى الفصل بنجاح');
+        return response()->json(['success' => true]);
     }
-    
+
     /**
-     * Remove a student from the classroom.
+     * Display a listing of students across all classrooms for the authenticated teacher.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function allStudents()
+    {
+        $classrooms = ClassRoom::where('user_id', Auth::id())
+            ->with(['students.school', 'school'])
+            ->get();
+        
+        // Get all students from teacher's classrooms
+        $students = collect();
+        foreach ($classrooms as $classroom) {
+            $students = $students->merge($classroom->students);
+        }
+        
+        // Remove duplicates and get unique students
+        $students = $students->unique('id');
+        
+        // Get all schools for the filter
+        $schools = $classrooms->pluck('school')->unique('id')->filter();
+        
+        return view('teacher.students.all', compact('classrooms', 'students', 'schools'));
+    }
+
+    /**
+     * Remove student from classroom.
      *
      * @param  int  $classroomId
      * @param  int  $studentId
-     * @return \Illuminate\Http\RedirectResponse
+     * @return \Illuminate\Http\Response
      */
     public function removeFromClassroom($classroomId, $studentId)
     {
         $classroom = ClassRoom::findOrFail($classroomId);
+        $this->authorize('view', $classroom);
         
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $student = Student::findOrFail($studentId);
+        $this->studentService->removeStudentFromClassroom($student, $classroom);
         
-        // Check if student is in this classroom
-        if (!$classroom->students->contains($studentId)) {
-            return back()->with('error', 'الطالب غير موجود في هذا الفصل');
-        }
-        
-        // Detach the student from the classroom
-        $classroom->students()->detach($studentId);
-        
-        $student = Student::find($studentId);
-        
-        return redirect()->route('classrooms.show', $classroom->id)
-            ->with('success', 'تم إزالة الطالب ' . $student->full_name . ' من الفصل بنجاح');
-    }
-    
-    /**
-     * Send a note to a student.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $classroomId
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function sendNote(Request $request, $classroomId)
-    {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-        
-        $request->validate([
-            'student_id' => 'required|exists:students,id',
-            'subject' => 'required|string|max:255',
-            'content' => 'required|string',
-        ]);
-        
-        // Check if student is in this classroom
-        if (!$classroom->students->contains($request->student_id)) {
-            return back()->with('error', 'الطالب غير موجود في هذا الفصل');
-        }
-        
-        // Create the message
-        Message::create([
-            'subject' => $request->subject,
-            'content' => $request->content,
-            'sender_id' => Auth::id(),
-            'student_id' => $request->student_id,
-            'class_room_id' => $classroom->id,
-            'type' => 'personal',
-        ]);
-        
-        return redirect()->route('classrooms.show', $classroom->id)
-            ->with('success', 'تم إرسال الملاحظة بنجاح');
+        return response()->json(['success' => true]);
     }
 
     /**
@@ -590,15 +366,7 @@ class StudentController extends Controller
      */
     public function edit(ClassRoom $classroom, Student $student)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-
-        // Check if student belongs to the classroom
-        if (!$classroom->students->contains($student->id)) {
-            abort(403, 'هذا الطالب ليس مسجلاً في هذا الفصل');
-        }
+        $this->authorize('view', $classroom);
         
         return view('teacher.students.edit', compact('classroom', 'student'));
     }
@@ -611,36 +379,12 @@ class StudentController extends Controller
      * @param  \App\Models\Student  $student
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, ClassRoom $classroom, Student $student)
+    public function update(UpdateStudentRequest $request, ClassRoom $classroom, Student $student)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $this->authorize('view', $classroom);
         
-        // Check if student belongs to the classroom
-        if (!$classroom->students->contains($student->id)) {
-            abort(403, 'هذا الطالب ليس مسجلاً في هذا الفصل');
-        }
-
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'birth_year' => 'required|numeric|min:' . (date('Y') - 100) . '|max:' . date('Y'),
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-        ]);
-
-        $student->update([
-            'first_name' => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name' => $request->last_name,
-            'birth_year' => $request->birth_year,
-            'phone' => $request->phone,
-            'address' => $request->address,
-        ]);
-
+        $updatedStudent = $this->studentService->updateStudent($student, $request->validated());
+        
         return redirect()->route('teacher.classroom.students', $classroom)
             ->with('success', 'تم تحديث بيانات الطالب بنجاح');
     }
@@ -690,147 +434,8 @@ class StudentController extends Controller
      */
     public function viewCredentials(ClassRoom $classroom, Student $student)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $this->authorize('view', $classroom);
         
-        // Check if the student belongs to this classroom
-        if (!$classroom->students->contains($student->id)) {
-            return back()->with('error', 'هذا الطالب ليس في هذا الفصل');
-        }
-        
-        return view('teacher.students.credentials', [
-            'classroom' => $classroom,
-            'student' => $student
-        ]);
-    }
-
-    /**
-     * Mark a message as read via AJAX.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function markMessageRead($id)
-    {
-        try {
-            $student = auth('student')->user();
-            $message = Message::where(function($query) use ($student, $id) {
-                // Messages sent to this student
-                $query->where('student_id', $student->id)
-                      ->where('id', $id);
-            })->orWhere(function($query) use ($student, $id) {
-                // Messages sent by this student
-                $query->where('sender_id', $student->id)
-                      ->where('sender_type', 'student')
-                      ->where('id', $id);
-            })->firstOrFail();
-            
-            // Only update if message is not already read
-            if (!$message->read_at) {
-                $message->read_at = now();
-                $message->save();
-            }
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'تم تمييز الرسالة كمقروءة'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'حدث خطأ أثناء تمييز الرسالة كمقروءة',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Show the form for creating a new message to a teacher.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function composeMessage()
-    {
-        $student = auth('student')->user();
-        
-        // Get all classrooms the student belongs to with their teachers
-        $classrooms = $student->classRooms()->with('user')->get();
-        
-        // Get unique teachers from these classrooms
-        $teachers = $classrooms->pluck('user')->unique('id')->filter()->values();
-        
-        return view('student.compose-message', compact('student', 'teachers', 'classrooms'));
-    }
-    
-    /**
-     * Store a newly created message.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function sendMessage(Request $request)
-    {
-        $student = auth('student')->user();
-        
-        $request->validate([
-            'subject' => 'required|string|max:255',
-            'content' => 'required|string',
-            'recipient_id' => 'required|exists:users,id',
-        ]);
-        
-        // Verify that the teacher teaches one of the student's classes
-        $isTeacherOfStudent = $student->classRooms()
-            ->where('user_id', $request->recipient_id)
-            ->exists();
-            
-        if (!$isTeacherOfStudent) {
-            return back()->with('error', 'لا يمكنك إرسال رسالة إلى معلم ليس من معلميك');
-        }
-        
-        // Create the message
-        Message::create([
-            'subject' => $request->subject,
-            'content' => $request->content,
-            'type' => 'personal',
-            'sender_id' => $student->id,
-            'sender_type' => 'student',
-            'recipient_id' => $request->recipient_id,
-            'is_read' => false,
-        ]);
-        
-        return redirect()->route('student.messages')
-            ->with('success', 'تم إرسال الرسالة بنجاح');
-    }
-
-    /**
-     * Display a listing of students across all classrooms for the authenticated teacher.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function allStudents()
-    {
-        $teacher = Auth::user();
-        
-        // Get all classrooms owned by this teacher
-        $classrooms = ClassRoom::where('user_id', $teacher->id)->get();
-        
-        // Get unique student IDs from all classrooms
-        $studentIds = [];
-        foreach ($classrooms as $classroom) {
-            $studentIds = array_merge($studentIds, $classroom->students->pluck('id')->toArray());
-        }
-        
-        // Remove duplicates
-        $studentIds = array_unique($studentIds);
-        
-        // Get all students with their school relationship loaded
-        $students = Student::whereIn('id', $studentIds)->with('school')->get();
-        
-        // Get unique schools from the students for the filter
-        $schools = $students->pluck('school')->unique('id')->sortBy('name');
-        
-        return view('teacher.students.all', compact('students', 'classrooms', 'schools'));
+        return view('teacher.students.credentials', compact('classroom', 'student'));
     }
 }

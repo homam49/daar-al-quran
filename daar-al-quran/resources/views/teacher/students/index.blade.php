@@ -52,22 +52,27 @@
                         <td><strong>{{ $student->username ?? 'غير متوفر' }}</strong></td>
                         <td>{{ $student->address ?? 'غير متوفر' }}</td>
                         <td class="text-center">
-                            <a href="{{ route('teacher.classroom.students.edit', [$classroom->id, $student->id]) }}" class="btn btn-sm btn-primary mb-1">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ route('teacher.classroom.students.remove', [$classroom->id, $student->id]) }}" method="POST" class="d-inline delete-form" onsubmit="return confirm('هل أنت متأكد من إزالة هذا الطالب من الفصل؟');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger mb-1">
-                                    <i class="fas fa-trash"></i>
+                            <div class="btn-group-vertical" role="group">
+                                <a href="{{ route('teacher.memorization.show', $student->id) }}" class="btn btn-sm btn-success mb-1" title="متابعة حفظ القرآن">
+                                    <i class="fas fa-book"></i> 📖
+                                </a>
+                                <a href="{{ route('teacher.classroom.students.edit', [$classroom->id, $student->id]) }}" class="btn btn-sm btn-primary mb-1" title="تعديل بيانات الطالب">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-info mb-1 view-credentials" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}" title="عرض بيانات الدخول">
+                                    <i class="fas fa-eye"></i>
                                 </button>
-                            </form>
-                            <button class="btn btn-sm btn-info mb-1 view-credentials" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-secondary mb-1 send-note-btn" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                                <button class="btn btn-sm btn-secondary mb-1 send-note-btn" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}" title="إرسال رسالة">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                                <form action="{{ route('teacher.classroom.students.remove', [$classroom->id, $student->id]) }}" method="POST" class="d-inline delete-form" onsubmit="return confirm('هل أنت متأكد من إزالة هذا الطالب من الفصل؟');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger mb-1" title="إزالة من الفصل">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     @endforeach

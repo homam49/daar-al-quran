@@ -40,7 +40,7 @@
                 <p class="mb-0">عدد الطلاب</p>
             </div>
             <div class="card-footer bg-success text-white text-center py-2">
-                <a href="{{ route('students.index') }}" class="text-white text-decoration-none">
+                                        <a href="{{ route('teacher.students.index') }}" class="text-white text-decoration-none">
                     <small>عرض التفاصيل <i class="fas fa-arrow-left ms-1"></i></small>
                 </a>
             </div>
@@ -78,6 +78,94 @@
                     <small>عرض التفاصيل <i class="fas fa-arrow-left ms-1"></i></small>
                 </a>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Memorization Statistics Row -->
+<div class="row mt-4">
+    <div class="col-12 mb-4">
+        <div class="card shadow-sm border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-quran me-2"></i>إحصائيات حفظ القرآن الكريم</h5>
+            </div>
+            <!-- <div class="card-body">
+                <div class="row text-center mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="bg-success text-white rounded p-3">
+                            <h3 class="mb-1">{{ $memorization_stats['total_memorized'] ?? 0 }}</h3>
+                            <p class="mb-0">محفوظ إجمالي</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="bg-warning text-white rounded p-3">
+                            <h3 class="mb-1">{{ $memorization_stats['in_progress'] ?? 0 }}</h3>
+                            <p class="mb-0">قيد الحفظ</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="bg-info text-white rounded p-3">
+                            <h3 class="mb-1">{{ $memorization_stats['total_content_items'] ?? 0 }}</h3>
+                            <p class="mb-0">صفحة وسورة مُسجلة</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="bg-primary text-white rounded p-3">
+                            <h3 class="mb-1">{{ $memorization_stats['total_students_tracking'] ?? 0 }}</h3>
+                            <p class="mb-0">طالب يتم متابعة حفظه</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row text-center">
+                    <div class="col-md-6">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0"><i class="fas fa-file-text me-1"></i>إحصائيات الصفحات</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h4 class="text-success">{{ $memorization_stats['pages_memorized'] ?? 0 }}</h4>
+                                        <small>صفحة محفوظة</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <h4 class="text-warning">{{ $memorization_stats['pages_in_progress'] ?? 0 }}</h4>
+                                        <small>صفحة قيد الحفظ</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="fas fa-book me-1"></i>إحصائيات السور</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h4 class="text-success">{{ $memorization_stats['surahs_memorized'] ?? 0 }}</h4>
+                                        <small>سورة محفوظة</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <h4 class="text-warning">{{ $memorization_stats['surahs_in_progress'] ?? 0 }}</h4>
+                                        <small>سورة قيد الحفظ</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @if($students_count > 0)
+                <div class="mt-3 text-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        يمكنك متابعة حفظ طلابك من قائمة الطلاب في كل فصل
+                    </small>
+                </div>
+                @endif
+            </div> -->
         </div>
     </div>
 </div>

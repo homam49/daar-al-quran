@@ -22,6 +22,9 @@
                     <a href="{{ route('student.attendance') }}" class="nav-link {{ request()->routeIs('student.attendance*') ? 'active' : '' }}">
                         <i class="fas fa-calendar-check me-2"></i> سجل الحضور
                     </a>
+                    <a href="{{ route('student.memorization') }}" class="nav-link {{ request()->routeIs('student.memorization*') ? 'active' : '' }}">
+                        <i class="fas fa-book-quran me-2"></i> سجل الحفظ
+                    </a>
                     <a href="{{ route('student.messages') }}" class="nav-link {{ request()->routeIs('student.messages*') ? 'active' : '' }}">
                         <i class="fas fa-envelope me-2"></i> الرسائل
                         @if(Auth::guard('student')->check() && Auth::guard('student')->user()->messages()->whereNull('read_at')->count() > 0)

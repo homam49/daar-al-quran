@@ -107,6 +107,14 @@ class Student extends Authenticatable implements CanResetPasswordContract, MustV
     }
 
     /**
+     * Get the memorization progress records for the student.
+     */
+    public function memorizationProgress()
+    {
+        return $this->hasMany(MemorizationProgress::class);
+    }
+
+    /**
      * Set the student's password.
      */
     public function setPasswordAttribute($value)

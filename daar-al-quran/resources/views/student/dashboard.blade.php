@@ -13,7 +13,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-4 mb-4">
+    <!-- <div class="col-lg-4 mb-4">
         <div class="card shadow-sm text-center">
             <div class="card-body">
                 <div class="mb-3">
@@ -36,11 +36,11 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
-    <div class="col-lg-8 mb-4">
+    <div class="col-lg-12 mb-4">
         <div class="row dashboard-stats">
-            <div class="col-md-4 mb-4">
+            <div class="col-md-3 mb-4">
                 <div class="card bg-white text-dark h-100">
                     <div class="card-body text-center">
                         <div class="display-4 text-success mb-2">
@@ -57,7 +57,7 @@
                 </div>
             </div>
             
-            <div class="col-md-4 mb-4">
+            <div class="col-md-3 mb-4">
                 <div class="card bg-white text-dark h-100">
                     <div class="card-body text-center">
                         <div class="display-4 text-primary mb-2">
@@ -74,7 +74,7 @@
                 </div>
             </div>
             
-            <div class="col-md-4 mb-4">
+            <div class="col-md-3 mb-4">
                 <div class="card bg-white text-dark h-100">
                     <div class="card-body text-center">
                         <div class="display-4 text-info mb-2">
@@ -85,6 +85,34 @@
                     </div>
                     <div class="card-footer bg-info text-white text-center py-2">
                         <a href="{{ route('student.messages') }}" class="text-white text-decoration-none">
+                            <small>عرض التفاصيل <i class="fas fa-arrow-left ms-1"></i></small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card bg-white text-dark h-100">
+                    <div class="card-body text-center">
+                        <div class="display-4 text-warning mb-2">
+                            <i class="fas fa-quran"></i>
+                        </div>
+                        <h3 class="font-weight-bold">
+                            @php
+                                // Calculate memorization progress
+                                $memorizedCount = 0;
+                                if (isset($student)) {
+                                    $memorizedCount = \App\Models\MemorizationProgress::where('student_id', $student->id)
+                                        ->where('status', 'memorized')
+                                        ->count();
+                                }
+                            @endphp
+                            {{ $memorizedCount }}
+                        </h3>
+                        <p class="mb-0">سجل الحفظ</p>
+                    </div>
+                    <div class="card-footer bg-warning text-white text-center py-2">
+                        <a href="{{ route('student.memorization') }}" class="text-white text-decoration-none">
                             <small>عرض التفاصيل <i class="fas fa-arrow-left ms-1"></i></small>
                         </a>
                     </div>
