@@ -15,6 +15,216 @@ Namecheap shared hosting requires a specific file structure:
 - Database created in cPanel
 - Domain pointed to your hosting account
 
+## Pulling Updates from GitHub Repository
+
+### Option 1: Git via SSH (Recommended)
+
+If your Namecheap plan includes SSH access:
+
+```bash
+# Connect to your hosting account via SSH
+ssh username@yourdomainname.com
+
+# Navigate to your application directory
+cd app/
+
+# Pull latest changes from GitHub
+git pull origin main
+
+# Update dependencies and cache
+composer install --optimize-autoloader --no-dev
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# If there are new migrations
+php artisan migrate --force
+
+# Update public files if needed
+cp -r public/* ../public_html/
+```
+
+### Option 2: Automated Deployment Script (via SSH)
+
+Create a deployment script on your server:
+
+```bash
+# Create deployment script
+nano deploy.sh
+
+# Add the following content:
+#!/bin/bash
+echo "Starting deployment..."
+
+# Backup current version
+cp -r app app_backup_$(date +%Y%m%d_%H%M%S)
+
+# Pull latest changes
+cd app
+git pull origin main
+
+# Install dependencies
+composer install --optimize-autoloader --no-dev
+
+# Run migrations
+php artisan migrate --force
+
+# Clear and cache config
+php artisan config:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Update public files
+cp -r public/* ../public_html/
+
+echo "Deployment completed successfully!"
+
+# Make it executable
+chmod +x deploy.sh
+
+# Run deployment
+./deploy.sh
+```
+
+### Option 3: GitHub Webhooks (Advanced)
+
+Set up automatic deployments triggered by GitHub pushes:
+
+1. Create a webhook endpoint in your Laravel app:
+
+```php
+// In routes/web.php
+Route::post('/deploy-webhook', function (Request $request) {
+    // Verify GitHub signature for security
+    $signature = $request->header('X-Hub-Signature-256');
+    $payload = $request->getContent();
+    $secret = env('GITHUB_WEBHOOK_SECRET');
+    
+    $expectedSignature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+    
+    if (!hash_equals($signature, $expectedSignature)) {
+        return response('Unauthorized', 401);
+    }
+    
+    // Run deployment commands
+    exec('cd /path/to/your/app && git pull origin main 2>&1', $output);
+    exec('cd /path/to/your/app && composer install --optimize-autoloader --no-dev 2>&1', $output);
+    exec('cd /path/to/your/app && php artisan migrate --force 2>&1', $output);
+    exec('cd /path/to/your/app && php artisan config:cache 2>&1', $output);
+    
+    return response('Deployment triggered', 200);
+});
+```
+
+2. Add webhook URL in GitHub repository settings.
+
+### Option 4: Manual File Manager Method
+
+If SSH is not available:
+
+1. **Download latest code locally:**
+   ```bash
+   git pull origin main
+   ./deploy-namecheap.sh  # Prepare files for upload
+   ```
+
+2. **Upload via cPanel File Manager:**
+   - Login to cPanel → File Manager
+   - Upload and extract the prepared files from `namecheap-deployment/`
+   - Overwrite existing files
+
+3. **Clear caches via web interface:**
+   Create a simple web-accessible script:
+   
+   ```php
+   // Create public_html/deploy.php (remove after use!)
+   <?php
+   if (isset($_GET['secret']) && $_GET['secret'] === 'your-secret-key') {
+       exec('cd ../app && php artisan config:cache 2>&1', $output1);
+       exec('cd ../app && php artisan route:cache 2>&1', $output2);
+       exec('cd ../app && php artisan view:cache 2>&1', $output3);
+       
+       echo "Caches cleared successfully!<br>";
+       echo "Config: " . implode('<br>', $output1) . "<br>";
+       echo "Routes: " . implode('<br>', $output2) . "<br>";
+       echo "Views: " . implode('<br>', $output3) . "<br>";
+   } else {
+       echo "Access denied!";
+   }
+   ?>
+   ```
+   
+   Visit: `https://yourdomainname.com/deploy.php?secret=your-secret-key`
+
+### Option 5: FTP/SFTP Automation
+
+Use FTP clients with synchronization features:
+
+```bash
+# Using lftp for automated sync
+lftp -c "
+open sftp://username:password@yourdomainname.com
+mirror --reverse --delete --verbose /local/path/to/project/namecheap-deployment/app /app
+mirror --reverse --delete --verbose /local/path/to/project/namecheap-deployment/public_html /public_html
+quit
+"
+```
+
+## Continuous Integration Setup
+
+For automated deployments, create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy to Namecheap
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        
+    - name: Install dependencies
+      run: composer install --optimize-autoloader --no-dev
+      
+    - name: Prepare deployment files
+      run: ./deploy-namecheap.sh
+      
+    - name: Deploy via SFTP
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./namecheap-deployment/
+        server-dir: /
+```
+
+## Recommended Workflow
+
+1. **Initial Setup:** Use the deployment script to set up your hosting environment
+2. **Regular Updates:** Use SSH + Git for quick updates
+3. **Emergency Updates:** Use File Manager method as backup
+4. **Automated Deployments:** Set up CI/CD for hands-off deployments
+
+## Security Considerations
+
+- Never commit `.env` files to Git
+- Use environment variables for sensitive data
+- Regularly update dependencies
+- Monitor server logs for security issues
+- Use HTTPS for all communications
+
 ## Step 1: Prepare Local Files
 
 ### Create Deployment Structure
