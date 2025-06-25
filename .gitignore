@@ -1,11 +1,27 @@
-/node_modules
+# Dependencies
+node_modules/
+vendor/
+
+# Laravel specific
+.env
+.env.backup
+.env.production
+.env.local
+.env.testing
+
+# Cache and temporary files
+bootstrap/cache/
+storage/
+.phpunit.result.cache
+
+# Deployment files
+namecheap-deployment/
+*.zip
+deploy-output/
+
 /public/hot
 /public/storage
 /storage/*.key
-/vendor
-.env
-.env.backup
-.phpunit.result.cache
 Homestead.json
 Homestead.yaml
 npm-debug.log
