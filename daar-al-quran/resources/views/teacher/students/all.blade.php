@@ -61,9 +61,9 @@
                         @foreach($students as $student)
                         <tr 
                             data-school-id="{{ $student->school_id }}"
-                            data-search-text="{{ $student->full_name }} {{ $student->age }} {{ $student->school->name ?? '' }} {{ $student->username ?? '' }}"
+                                                            data-search-text="{{ $student->name }} {{ $student->age }} {{ $student->school->name ?? '' }} {{ $student->username ?? '' }}"
                         >
-                            <td>{{ $student->full_name }}</td>
+                            <td>{{ $student->name }}</td>
                             <td>{{ $student->age }} سنة</td>
                             <td>
                                 @if($student->classRooms->count() > 0)

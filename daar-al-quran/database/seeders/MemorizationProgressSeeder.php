@@ -85,7 +85,7 @@ class MemorizationProgressSeeder extends Seeder
                     ]);
                 }
                 
-                $this->command->info("Added memorization progress for student: {$student->full_name}");
+                $this->command->info("Added memorization progress for student: {$student->name}");
             }
         }
 

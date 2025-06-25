@@ -129,7 +129,7 @@ class StudentService
             'attendance_percentage' => $total_attendances > 0 
                 ? round(($attendance_count / $total_attendances) * 100) 
                 : 0,
-            'unread_messages' => $student->messages()->whereNull('read_at')->count(),
+            'unread_messages' => $student->messages()->whereNull('read_at')->where('sender_type', '!=', 'student')->count(),
         ];
     }
 

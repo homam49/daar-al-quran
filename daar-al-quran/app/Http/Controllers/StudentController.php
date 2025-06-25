@@ -38,7 +38,7 @@ class StudentController extends Controller
     public function index(ClassRoom $classroom)
     {
         $this->authorize('view', $classroom);
-        
+
         $students = $classroom->students;
         
         return view('teacher.students.index', compact('classroom', 'students'));
@@ -62,26 +62,26 @@ class StudentController extends Controller
     /**
      * Store a newly created student in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Http\Requests\StoreStudentRequest  $request
      * @param  \App\Models\ClassRoom  $classroom
      * @return \Illuminate\Http\Response
      */
     public function store(StoreStudentRequest $request, ClassRoom $classroom)
     {
         try {
-            if ($request->has('existing_student_id')) {
+        if ($request->has('existing_student_id')) {
                 // Add existing student to classroom
-                $student = Student::findOrFail($request->existing_student_id);
+            $student = Student::findOrFail($request->existing_student_id);
                 $this->studentService->addStudentToClassroom($student, $classroom);
-                
-                return redirect()->route('teacher.classroom.students', $classroom)
-                    ->with('success', 'تمت إضافة الطالب إلى الفصل بنجاح');
+
+            return redirect()->route('classrooms.show', $classroom)
+                ->with('success', 'تمت إضافة الطالب إلى الفصل بنجاح');
             } else {
                 // Create new student
                 $student = $this->studentService->createStudent($request->validated(), $classroom);
-                
-                return redirect()->route('teacher.classroom.students', $classroom)
-                    ->with('success', 'تم إنشاء الطالب وإضافته إلى الفصل بنجاح')
+
+        return redirect()->route('classrooms.show', $classroom)
+            ->with('success', 'تم إنشاء الطالب وإضافته إلى الفصل بنجاح')
                     ->with('password', $student->username)
                     ->with('username', $student->username);
             }
@@ -109,7 +109,7 @@ class StudentController extends Controller
         // Get recent messages
         $messages = $student->messages()
             ->orderBy('created_at', 'desc')
-            ->take(5)
+            ->take(2)
             ->get();
             
         // Get memorized count for memorization card
@@ -161,8 +161,27 @@ class StudentController extends Controller
     public function messages(Request $request)
     {
         $student = Auth::guard('student')->user();
+        $filter = $request->get('filter', 'all');
         
-        $query = $student->messages()->with('sender');
+        // Get both received and sent messages
+        $query = Message::where(function($q) use ($student) {
+            // Messages received by this student
+            $q->where('student_id', $student->id)
+              // Messages sent by this student
+              ->orWhere(function($subQ) use ($student) {
+                  $subQ->where('sender_type', 'student')
+                       ->where('sender_id', $student->id);
+              });
+        })->with(['sender', 'recipient']);
+        
+        // Apply filter
+        if ($filter === 'sent') {
+            $query->where('sender_type', 'student')
+                  ->where('sender_id', $student->id);
+        } elseif ($filter === 'received') {
+            $query->where('student_id', $student->id)
+                  ->where('sender_type', '!=', 'student');
+        }
         
         if ($request->unread) {
             $query->whereNull('read_at');
@@ -170,7 +189,7 @@ class StudentController extends Controller
         
         $messages = $query->orderBy('created_at', 'desc')->paginate(15);
         
-        return view('student.messages.index', compact('student', 'messages'));
+        return view('student.messages', compact('student', 'messages', 'filter'));
     }
 
     /**
@@ -182,16 +201,24 @@ class StudentController extends Controller
     public function viewMessage($id)
     {
         $student = Auth::guard('student')->user();
-        $message = $student->messages()->with('sender')->findOrFail($id);
         
-        // Mark as read
-        if (!$message->read_at) {
+        // Get message that is either received by or sent by this student
+        $message = Message::where(function($q) use ($student) {
+            $q->where('student_id', $student->id)
+              ->orWhere(function($subQ) use ($student) {
+                  $subQ->where('sender_type', 'student')
+                       ->where('sender_id', $student->id);
+              });
+        })->with(['sender', 'recipient'])->findOrFail($id);
+        
+        // Mark as read only if it's a received message
+        if (!$message->read_at && $message->student_id == $student->id) {
             $message->update(['read_at' => now()]);
         }
         
         return view('student.messages.view', compact('student', 'message'));
     }
-
+        
     /**
      * Show compose message form.
      *
@@ -233,12 +260,13 @@ class StudentController extends Controller
             'recipient_id' => $request->teacher_id,
             'recipient_type' => 'teacher',
             'student_id' => $student->id,
+            'is_read' => false,
         ]);
         
         return redirect()->route('student.messages')
             ->with('success', 'تم إرسال الرسالة بنجاح');
     }
-
+    
     /**
      * Mark message as read.
      *
@@ -248,13 +276,15 @@ class StudentController extends Controller
     public function markMessageRead($id)
     {
         $student = Auth::guard('student')->user();
-        $message = $student->messages()->findOrFail($id);
+        
+        // Only mark as read if this student is the recipient
+        $message = Message::where('student_id', $student->id)->findOrFail($id);
         
         $message->update(['read_at' => now()]);
         
         return response()->json(['success' => true]);
     }
-
+    
     /**
      * Display a listing of students across all classrooms for the authenticated teacher.
      *
@@ -280,7 +310,7 @@ class StudentController extends Controller
         
         return view('teacher.students.all', compact('classrooms', 'students', 'schools'));
     }
-
+    
     /**
      * Remove student from classroom.
      *
@@ -290,13 +320,17 @@ class StudentController extends Controller
      */
     public function removeFromClassroom($classroomId, $studentId)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        $this->authorize('view', $classroom);
-        
-        $student = Student::findOrFail($studentId);
-        $this->studentService->removeStudentFromClassroom($student, $classroom);
-        
-        return response()->json(['success' => true]);
+        try {
+            $classroom = ClassRoom::findOrFail($classroomId);
+            $this->authorize('view', $classroom);
+            
+            $student = Student::findOrFail($studentId);
+            $this->studentService->removeStudentFromClassroom($student, $classroom);
+            
+            return redirect()->back()->with('success', 'تم إزالة الطالب من الفصل بنجاح');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'حدث خطأ: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -326,8 +360,8 @@ class StudentController extends Controller
         $this->authorize('view', $classroom);
         
         $updatedStudent = $this->studentService->updateStudent($student, $request->validated());
-        
-        return redirect()->route('teacher.classroom.students', $classroom)
+
+        return redirect()->route('classrooms.show', $classroom)
             ->with('success', 'تم تحديث بيانات الطالب بنجاح');
     }
 
@@ -360,7 +394,7 @@ class StudentController extends Controller
         // Return the student's information
         return response()->json([
             'id' => $student->id,
-            'name' => $student->full_name,
+                            'name' => $student->name,
             'username' => $student->username,
             'email' => $student->email,
             'note' => 'اسم المستخدم وكلمة المرور متطابقتان'
@@ -379,5 +413,42 @@ class StudentController extends Controller
         $this->authorize('view', $classroom);
         
         return view('teacher.students.credentials', compact('classroom', 'student'));
+    }
+
+    /**
+     * Send note to student.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\ClassRoom  $classroom
+     * @return \Illuminate\Http\Response
+     */
+    public function sendNote(Request $request, ClassRoom $classroom)
+    {
+        $this->authorize('view', $classroom);
+        
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'subject' => 'required|string|max:255',
+            'content' => 'required|string|max:2000',
+        ]);
+        
+        // Verify student is in this classroom
+        $student = Student::findOrFail($request->student_id);
+        if (!$classroom->students->contains($student)) {
+            return back()->with('error', 'الطالب ليس في هذا الفصل');
+        }
+        
+        // Create the message
+        Message::create([
+            'subject' => $request->subject,
+            'content' => $request->content,
+            'type' => 'personal',
+            'sender_id' => Auth::id(),
+            'sender_type' => 'teacher',
+            'student_id' => $request->student_id,
+            'is_read' => false,
+        ]);
+        
+        return redirect()->back()->with('success', 'تم إرسال الملاحظة بنجاح');
     }
 }

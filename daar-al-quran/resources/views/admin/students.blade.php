@@ -134,7 +134,7 @@
                         @foreach($students as $index => $student)
                             <tr class="student-row" data-classroom-ids="{{ $student->classRooms->pluck('id')->implode(',') }}">
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $student->full_name ?? ($student->first_name . ' ' . $student->last_name) }}</td>
+                                <td>{{ $student->name ?? ($student->first_name . ' ' . $student->last_name) }}</td>
                                 <td>{{ isset($student->birth_year) ? (date('Y') - $student->birth_year) : 'غير محدد' }} سنة</td>
                                 <td class="position-relative">
                                     @if($student->classRooms->count() > 0)

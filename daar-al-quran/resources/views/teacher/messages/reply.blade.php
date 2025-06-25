@@ -17,7 +17,7 @@
     </div>
     <div class="card-body">
         <div class="mb-3">
-            <strong>من:</strong> {{ $message->sender->full_name ?? 'طالب' }}
+                                <strong>من:</strong> {{ $message->sender->name ?? 'طالب' }}
         </div>
         <div class="mb-3">
             <strong>الموضوع:</strong> {{ $message->subject }}

@@ -20,7 +20,7 @@
                     <div class="avatar avatar-lg mx-auto mb-3">
                         <i class="fas fa-user-graduate fa-3x text-primary"></i>
                     </div>
-                    <h5>{{ $student->full_name }}</h5>
+                    <h5>{{ $student->name }}</h5>
                     <p class="text-muted mb-0">{{ $student->username }}</p>
                 </div>
                 <hr>
@@ -158,7 +158,7 @@
     </div>
 </div>
 
-<div class="row">
+<!-- <div class="row">
     <div class="col-lg-6 mb-4">
         <div class="card shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -172,7 +172,7 @@
                             <div class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">{{ $session->classRoom ? $session->classRoom->name : 'فصل غير معروف' }}</h6>
-                                    <small>{{ $session->start_time }} - {{ $session->end_time }}</small>
+                                    <small class="time-display">{{ $session->start_time }} - {{ $session->end_time }}</small>
                                 </div>
                                 <div class="d-flex w-100 justify-content-between">
                                     <p class="mb-1">{{ $session->classRoom && $session->classRoom->school ? $session->classRoom->school->name : 'مدرسة غير معروفة' }}</p>
@@ -215,12 +215,14 @@
                             @endphp
                             <div class="list-group-item {{ $message->read_at ? '' : 'bg-light' }} mb-2">
                                 <div class="d-flex w-100 justify-content-between" 
+                                     data-message-id="{{ $message->id }}"
                                      data-bs-toggle="collapse" 
                                      href="#dashboardMessageContent{{ $message->id }}" 
                                      role="button" 
                                      aria-expanded="false" 
                                      aria-controls="dashboardMessageContent{{ $message->id }}"
-                                     style="cursor: pointer;">
+                                     style="cursor: pointer;"
+                                     onclick="markDashboardMessageAsRead({{ $message->id }})">
                                     <h6 class="mb-1 text-primary">
                                         @if(!$message->read_at)
                                             <span class="badge bg-primary me-2">جديد</span>
@@ -251,55 +253,113 @@
             </div>
         </div>
     </div>
-</div>
+</div> -->
 @endsection 
 
-@push('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get all message collapse items on the dashboard
-        const dashboardMessageCollapsibles = document.querySelectorAll('[data-bs-toggle="collapse"][href^="#dashboardMessageContent"]');
-        
-        // Add click event listener to each
-        dashboardMessageCollapsibles.forEach(item => {
-            item.addEventListener('click', function() {
-                const messageId = this.getAttribute('href').replace('#dashboardMessageContent', '');
-                const messageItem = this.closest('.list-group-item');
-                
-                // If the message is unread (has bg-light class), mark it as read
-                if (messageItem.classList.contains('bg-light')) {
-                    // Remove visual indicators of unread
-                    messageItem.classList.remove('bg-light');
-                    const badgeEl = messageItem.querySelector('.badge.bg-primary');
-                    if (badgeEl) {
-                        badgeEl.remove();
-                    }
-                    
-                    // Update the unread message counter if it exists
-                    const unreadCounter = document.querySelector('.card .fas.fa-envelope').closest('.card-body').querySelector('h3');
-                    if (unreadCounter) {
-                        const currentCount = parseInt(unreadCounter.textContent);
-                        if (currentCount > 0) {
-                            unreadCounter.textContent = (currentCount - 1).toString();
-                        }
-                    }
-                    
-                    // Send AJAX request to mark as read
-                    fetch(`/student/messages/${messageId}/mark-read`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        }
-                    }).then(response => {
-                        if (!response.ok) {
-                            console.error('Error marking message as read');
-                        }
-                    });
-                }
-            });
-        });
+function markDashboardMessageAsRead(messageId) {
+    // Find the message header and badge elements
+    const messageHeader = document.querySelector(`[data-message-id="${messageId}"]`);
+    const newBadge = messageHeader?.querySelector('.badge.bg-primary');
+    
+    // Only proceed if there's a "جديد" badge to remove
+    if (!newBadge || newBadge.textContent.trim() !== 'جديد') {
+        return;
+    }
+    
+    // Mark as read in database via AJAX
+    fetch('/student/messages/' + messageId + '/mark-read', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Remove the "جديد" badge with smooth animation
+            newBadge.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+            newBadge.style.opacity = '0';
+            newBadge.style.transform = 'scale(0.8)';
+            
+            setTimeout(() => {
+                newBadge.remove();
+            }, 300);
+            
+            // Remove the light background from the message item
+            const messageItem = messageHeader.closest('.list-group-item');
+            if (messageItem && messageItem.classList.contains('bg-light')) {
+                messageItem.classList.remove('bg-light');
+            }
+            
+            // Update the sidebar notification badge count
+            updateSidebarNotificationCount();
+            
+            // Update the dashboard unread messages counter
+            updateDashboardUnreadCounter();
+            
+            console.log('Dashboard message marked as read:', data);
+        }
+    })
+    .catch(error => {
+        console.error('Error marking dashboard message as read:', error);
     });
-</script>
-@endpush 
+}
+
+function updateSidebarNotificationCount() {
+    // Find the sidebar notification badge
+    const sidebarBadge = document.querySelector('.nav-link[href*="student.messages"] .badge.bg-danger');
+    
+    if (sidebarBadge) {
+        const currentCount = parseInt(sidebarBadge.textContent.trim()) || 0;
+        const newCount = Math.max(0, currentCount - 1);
+        
+        if (newCount === 0) {
+            // Remove the badge entirely if count reaches 0
+            sidebarBadge.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+            sidebarBadge.style.opacity = '0';
+            sidebarBadge.style.transform = 'scale(0.8)';
+            
+            setTimeout(() => {
+                sidebarBadge.remove();
+            }, 300);
+        } else {
+            // Update the count with a subtle animation
+            sidebarBadge.style.transition = 'transform 0.2s ease-out';
+            sidebarBadge.style.transform = 'scale(1.2)';
+            sidebarBadge.textContent = newCount;
+            
+            setTimeout(() => {
+                sidebarBadge.style.transform = 'scale(1)';
+            }, 200);
+        }
+    }
+}
+
+function updateDashboardUnreadCounter() {
+    // Find the unread messages counter in the dashboard
+    const unreadCounter = document.querySelector('h3.font-weight-bold');
+    if (unreadCounter) {
+        const currentCount = parseInt(unreadCounter.textContent.trim()) || 0;
+        const newCount = Math.max(0, currentCount - 1);
+        
+        // Update with animation
+        unreadCounter.style.transition = 'transform 0.2s ease-out';
+        unreadCounter.style.transform = 'scale(1.1)';
+        unreadCounter.textContent = newCount;
+        
+        setTimeout(() => {
+            unreadCounter.style.transform = 'scale(1)';
+        }, 200);
+    }
+}
+</script> 

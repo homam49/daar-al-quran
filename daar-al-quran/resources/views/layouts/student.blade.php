@@ -27,8 +27,8 @@
                     </a>
                     <a href="{{ route('student.messages') }}" class="nav-link {{ request()->routeIs('student.messages*') ? 'active' : '' }}">
                         <i class="fas fa-envelope me-2"></i> الرسائل
-                        @if(Auth::guard('student')->check() && Auth::guard('student')->user()->messages()->whereNull('read_at')->count() > 0)
-                            <span class="badge bg-danger rounded-pill ms-1">{{ Auth::guard('student')->user()->messages()->whereNull('read_at')->count() }}</span>
+                        @if(Auth::guard('student')->check() && Auth::guard('student')->user()->messages()->whereNull('read_at')->where('sender_type', '!=', 'student')->count() > 0)
+                            <span class="badge bg-danger rounded-pill ms-1">{{ Auth::guard('student')->user()->messages()->whereNull('read_at')->where('sender_type', '!=', 'student')->count() }}</span>
                         @endif
                     </a>
                     <a href="{{ route('student.classrooms') }}" class="nav-link {{ request()->routeIs('student.classrooms*') ? 'active' : '' }}">

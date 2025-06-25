@@ -79,7 +79,7 @@
                             @foreach($classroom->students as $index => $student)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $student->full_name }}</td>
+                                                                            <td>{{ $student->name }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <input type="radio" class="btn-check" name="attendance[{{ $student->id }}]" 

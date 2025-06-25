@@ -90,7 +90,7 @@ class TeacherController extends Controller
     public function updatePassword(UpdatePasswordRequest $request)
     {
         $this->teacherService->updatePassword($request->validated());
-        
+
         return back()->with('success', 'تم تغيير كلمة المرور بنجاح');
     }
 
@@ -103,7 +103,7 @@ class TeacherController extends Controller
     public function updateName(UpdateNameRequest $request)
     {
         $this->teacherService->updateName($request->validated());
-        
+
         return back()->with('success', 'تم تحديث الاسم بنجاح');
     }
 

@@ -23,12 +23,33 @@
                     <a href="{{ route('classrooms.index') }}" class="nav-link {{ request()->routeIs('classrooms.*') ? 'active' : '' }}">
                         <i class="fas fa-chalkboard"></i> الفصول الدراسية
                     </a>
+                    <a href="{{ route('teacher.students.index') }}" class="nav-link {{ request()->routeIs('teacher.students.*') || request()->routeIs('memorization.*') ? 'active' : '' }}">
+                        <i class="fas fa-users"></i> الطلاب والحفظ
+                    </a>
                     <a href="{{ route('teacher.messages') }}" class="nav-link {{ request()->routeIs('teacher.messages*') ? 'active' : '' }}">
                         <i class="fas fa-envelope"></i> الرسائل
+                        @php
+                            $unreadCount = \App\Models\Message::where('recipient_id', Auth::id())
+                                ->where('sender_type', 'student')
+                                ->whereNull('read_at')
+                                ->count();
+                        @endphp
+                        @if($unreadCount > 0)
+                            <span class="badge bg-danger rounded-pill ms-1">{{ $unreadCount }}</span>
+                        @endif
                     </a>
                     <a href="{{ route('teacher.profile') }}" class="nav-link {{ request()->routeIs('teacher.profile') ? 'active' : '' }}">
                         <i class="fas fa-user-cog"></i> الملف الشخصي
                     </a>
+                    
+                    <hr class="my-2">
+                    
+                    <form action="{{ route('logout') }}" method="POST" class="mt-2">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-sign-out-alt me-2"></i> تسجيل الخروج
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

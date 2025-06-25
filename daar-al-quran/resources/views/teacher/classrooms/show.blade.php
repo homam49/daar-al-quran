@@ -47,7 +47,21 @@
                                         <ul class="list-group mt-2">
                                             @foreach($classroom->schedules as $schedule)
                                             <li class="list-group-item">
-                                                {{ $schedule->day }} ({{ date('H:i', strtotime($schedule->start_time)) }} - {{ date('H:i', strtotime($schedule->end_time)) }})
+                                                @php
+                                                    try {
+                                                        if (strlen($schedule->start_time) > 8) {
+                                                            $startTime = \Carbon\Carbon::parse($schedule->start_time)->format('H:i');
+                                                            $endTime = \Carbon\Carbon::parse($schedule->end_time)->format('H:i');
+                                                        } else {
+                                                            $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->start_time)->format('H:i');
+                                                            $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->end_time)->format('H:i');
+                                                        }
+                                                    } catch (\Exception $e) {
+                                                        $startTime = date('H:i', strtotime($schedule->start_time));
+                                                        $endTime = date('H:i', strtotime($schedule->end_time));
+                                                    }
+                                                @endphp
+                                                {{ $schedule->day }} (<span class="time-display">{{ $startTime }} - {{ $endTime }}</span>)
                                             </li>
                                             @endforeach
                                         </ul>
@@ -80,7 +94,7 @@
                                                     <th>اسم الطالب</th>
                                                     <th>العمر</th>
                                                     <th>رقم الهاتف</th>
-                                                    <th>البريد الإلكتروني</th>
+                                                    <th>حالة الدخول</th>
                                                     <th>الإجراءات</th>
                                                 </tr>
                                             </thead>
@@ -88,20 +102,35 @@
                                                 @foreach($classroom->students as $index => $student)
                                                 <tr>
                                                     <td>{{ $index + 1 }}</td>
-                                                    <td>{{ $student->full_name }}</td>
+                                                    <td>{{ $student->name }}</td>
                                                     <td>{{ $student->age }} سنة</td>
                                                     <td>{{ $student->phone ?: 'غير متوفر' }}</td>
-                                                    <td>{{ $student->email ?: 'غير متوفر' }}</td>
+                                                    <td>
+                                                        @if($student->first_login) 
+                                                            <span class="badge bg-warning text-dark">
+                                                                <i class="fas fa-clock me-1"></i>لم يسجل دخول
+                                                            </span>
+                                                        @else
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-check-circle me-1"></i>سجل دخول
+                                                            </span>
+                                                        @endif
+                                                    </td>
                                                     <td>
                                                         <div class="d-flex">
                                                             <div class="d-flex gap-1">
                                                                 
                                                                 <button type="button" class="btn btn-sm btn-warning send-note-btn" 
                                                                         data-student-id="{{ $student->id }}"
-                                                                        data-student-name="{{ $student->full_name }}"
-                                                                        onclick="openSendNoteModal('{{ $student->id }}', '{{ $student->full_name }}')">
+                                                                        data-student-name="{{ $student->name }}"
+                                                                        onclick="openSendNoteModal('{{ $student->id }}', '{{ $student->name }}')">
                                                                     <i class="fas fa-envelope"></i>
                                                                 </button>
+                                                                <a href="{{ route('teacher.memorization.show', $student->id) }}" 
+                                                                   class="btn btn-sm btn-success" 
+                                                                   title="تتبع الحفظ">
+                                                                    <i class="fas fa-book-quran"></i>
+                                                                </a>
                                                                 <form action="{{ route('classroom.students.remove', [$classroom->id, $student->id]) }}" 
                                                                       method="POST" class="d-inline" 
                                                                       onsubmit="return confirm('هل أنت متأكد من حذف هذا الطالب من الفصل؟');">
@@ -115,7 +144,7 @@
                                                                 <button type="button" class="btn btn-sm btn-info" 
                                                                        onclick="(function(){ 
                                                                          var popup=document.getElementById('credentialsPopup'); 
-                                                                         document.getElementById('popup-student-name').value='{{ $student->full_name }}'; 
+                                                                         document.getElementById('popup-student-name').value='{{ $student->name }}'; 
                                                                          document.getElementById('popup-username').value='{{ $student->username }}'; 
                                                                          popup.style.display='block'; 
                                                                          return false;
@@ -213,7 +242,7 @@
                                                 <tr>
                                                     <td>{{ $index + 1 }}</td>
                                                     <td>{{ $session->session_date->format('Y-m-d') }}</td>
-                                                    <td>{{ $session->start_time }} - {{ $session->end_time }}</td>
+                                                    <td><span class="time-display">{{ $session->start_time }} - {{ $session->end_time }}</span></td>
                                                     <td>{{ $session->attendances->where('status', 'present')->count() }}</td>
                                                     <td>{{ $session->attendances->where('status', 'absent')->count() }}</td>
                                                     <td>{{ Str::limit($session->notes, 30) }}</td>
@@ -255,8 +284,19 @@
             <button onclick="document.getElementById('newStudentModalOverlay').style.display='none';" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
         <div style="padding: 20px;">
+            @if($errors->any() && request()->input('form_type') == 'new_student')
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            
             <form action="{{ route('classroom.students.store', $classroom->id) }}" method="POST">
                 @csrf
+                <input type="hidden" name="form_type" value="new_student">
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="first_name" class="form-label">الاسم الأول<span class="text-danger">*</span></label>
@@ -306,8 +346,19 @@
             <button onclick="document.getElementById('existingStudentModalOverlay').style.display='none';" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
         <div style="padding: 20px;">
+            @if($errors->any() && request()->input('form_type') == 'existing_student')
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            
             <form action="{{ route('classroom.students.attach', $classroom->id) }}" method="POST">
                 @csrf
+                <input type="hidden" name="form_type" value="existing_student">
                 <div class="mb-3">
                     <label for="student_search" class="form-label">البحث عن طالب</label>
                     <div class="input-group">
@@ -316,11 +367,11 @@
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label for="student_id" class="form-label">اختر الطالب<span class="text-danger">*</span></label>
-                    <select class="form-select form-select-lg" id="student_id" name="student_id" required>
+                    <label for="existing_student_id" class="form-label">اختر الطالب<span class="text-danger">*</span></label>
+                    <select class="form-select form-select-lg" id="existing_student_id" name="existing_student_id" required>
                         <option value="">-- اختر طالب --</option>
                         @foreach($existingStudents as $student)
-                            <option value="{{ $student->id }}">{{ $student->first_name }} {{ $student->middle_name ?? '' }} {{ $student->last_name }}</option>
+                            <option value="{{ $student->id }}">{{ $student->name }}</option>
                         @endforeach
                     </select>
                     <small class="text-muted d-block mt-1"><i class="fas fa-info-circle"></i> سيتم عرض الطلاب الموجودين في نفس المدرسة فقط</small>
@@ -512,6 +563,15 @@
                 }
             });
         }
+        
+        // Show modal if there are validation errors
+        @if($errors->any())
+            @if(request()->input('form_type') == 'new_student')
+                document.getElementById('newStudentModalOverlay').style.display = 'block';
+            @elseif(request()->input('form_type') == 'existing_student')
+                document.getElementById('existingStudentModalOverlay').style.display = 'block';
+            @endif
+        @endif
     });
 </script>
 @endsection 

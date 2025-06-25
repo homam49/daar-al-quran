@@ -34,7 +34,7 @@
                     <strong>تاريخ الجلسة:</strong> {{ $session->session_date->format('Y-m-d') }}
                 </div>
                 <div class="mb-3">
-                    <strong>وقت الجلسة:</strong> {{ $session->start_time }} - {{ $session->end_time }}
+                    <strong>وقت الجلسة:</strong> <span class="time-display">{{ $session->start_time }} - {{ $session->end_time }}</span>
                 </div>
                 @if($session->description)
                 <div class="mb-3">
@@ -84,12 +84,12 @@
                     @endphp
                     <div class="progress" style="height: 25px;">
                         <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ $presentCount / $totalStudents * 100 }}%;" 
+                             style="width: {{ $totalStudents > 0 ? ($presentCount / $totalStudents * 100) : 0 }}%;" 
                              aria-valuenow="{{ $presentCount }}" aria-valuemin="0" aria-valuemax="{{ $totalStudents }}">
                             {{ $presentCount }}
                         </div>
                         <div class="progress-bar bg-warning" role="progressbar" 
-                             style="width: {{ $lateCount / $totalStudents * 100 }}%;" 
+                             style="width: {{ $totalStudents > 0 ? ($lateCount / $totalStudents * 100) : 0 }}%;" 
                              aria-valuenow="{{ $lateCount }}" aria-valuemin="0" aria-valuemax="{{ $totalStudents }}">
                             {{ $lateCount }}
                         </div>
@@ -124,7 +124,7 @@
                     @foreach($session->attendances as $index => $attendance)
                     <tr>
                         <td>{{ $index + 1 }}</td>
-                        <td>{{ $attendance->student->full_name }}</td>
+                                                                <td>{{ $attendance->student->name }}</td>
                         <td>
                             @if($attendance->status == 'present')
                                 <span class="badge bg-success"><i class="fas fa-check me-1"></i> حاضر</span>

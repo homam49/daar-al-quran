@@ -38,7 +38,7 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     Route::get('/classrooms/{classroom}/students/{student}/edit', [StudentController::class, 'edit'])->name('classroom.students.edit');
     Route::put('/classrooms/{classroom}/students/{student}', [StudentController::class, 'update'])->name('classroom.students.update');
     Route::delete('/classroom/{classroom}/students/{student}', [StudentController::class, 'removeFromClassroom'])->name('classroom.students.remove');
-    Route::post('/classroom/{classroom}/students/attach', [StudentController::class, 'attachToClassroom'])->name('classroom.students.attach');
+    Route::post('/classroom/{classroom}/students/attach', [StudentController::class, 'store'])->name('classroom.students.attach');
     Route::post('/classroom/{classroom}/students/note', [StudentController::class, 'sendNote'])->name('classroom.students.note');
     Route::get('/classrooms/{classroom}/students/{student}/credentials', [StudentController::class, 'viewCredentials'])->name('classroom.students.credentials');
     

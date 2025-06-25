@@ -64,7 +64,7 @@
                             <td>{{ $session->classroom->name }}</td>
                             <td>{{ $session->classroom->school->name ?? 'غير محدد' }}</td>
                             <td>{{ $session->formatted_date ?? $session->session_date }}</td>
-                            <td>{{ $session->formatted_start_time ?? $session->start_time }} - {{ $session->formatted_end_time ?? $session->end_time }}</td>
+                                                            <td><span class="time-display">{{ $session->formatted_start_time ?? $session->start_time }} - {{ $session->formatted_end_time ?? $session->end_time }}</span></td>
                             <td>
                                 <div class="d-flex">
                                     <a href="{{ route('classroom.sessions.show', ['classroom' => $session->class_room_id, 'session' => $session->id]) }}" 

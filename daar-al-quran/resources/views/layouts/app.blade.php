@@ -149,6 +149,13 @@
             color: #ffc107;
         }
         
+        /* Time display fix for RTL */
+        .time-display {
+            direction: ltr !important;
+            text-align: center;
+            unicode-bidi: bidi-override;
+        }
+        
         /* Mobile responsiveness */
         @media (max-width: 767.98px) {
             .sidebar {
@@ -203,8 +210,8 @@
                                 <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                     <a class="dropdown-item" href="{{ route('logout') }}"
                                         onclick="event.preventDefault();
-                                                      document.getElementById('logout-form').submit();">
-                                        تسجيل الخروج
+                                        document.getElementById('logout-form').submit();">
+                                        <i class="fas fa-sign-out-alt me-2"></i>تسجيل الخروج
                                     </a>
 
                                     <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
@@ -213,6 +220,27 @@
                                 </div>
                             </li>
                         @endguest
+                        
+                        <!-- Student Authentication -->
+                        <!-- @if(Auth::guard('student')->check())
+                            <li class="nav-item dropdown">
+                                <a id="studentNavbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
+                                    {{ Auth::guard('student')->user()->name }}
+                                </a>
+
+                                <div class="dropdown-menu dropdown-menu-end" aria-labelledby="studentNavbarDropdown">
+                                    <a class="dropdown-item" href="{{ route('student.logout') }}"
+                                        onclick="event.preventDefault();
+                                                      document.getElementById('student-logout-form').submit();">
+                                        <i class="fas fa-sign-out-alt me-2"></i>تسجيل الخروج
+                                    </a>
+
+                                    <form id="student-logout-form" action="{{ route('student.logout') }}" method="POST" class="d-none">
+                                        @csrf
+                                    </form>
+                                </div>
+                            </li>
+                        @endif -->
                     </ul>
                 </div>
             </div>

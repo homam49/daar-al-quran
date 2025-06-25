@@ -42,7 +42,21 @@
                         @if(isset($classroom->start_time) && isset($classroom->end_time))
                         <div class="mb-3">
                             <i class="fas fa-clock text-primary me-2"></i> 
-                            وقت الدراسة: {{ date('g:i A', strtotime($classroom->start_time)) }} - {{ date('g:i A', strtotime($classroom->end_time)) }}
+                            @php
+                                try {
+                                    if (strlen($classroom->start_time) > 8) {
+                                        $startTime = \Carbon\Carbon::parse($classroom->start_time)->format('h:i A');
+                                        $endTime = \Carbon\Carbon::parse($classroom->end_time)->format('h:i A');
+                                    } else {
+                                        $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $classroom->start_time)->format('h:i A');
+                                        $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $classroom->end_time)->format('h:i A');
+                                    }
+                                } catch (\Exception $e) {
+                                    $startTime = date('h:i A', strtotime($classroom->start_time));
+                                    $endTime = date('h:i A', strtotime($classroom->end_time));
+                                }
+                            @endphp
+                            وقت الدراسة: <span class="time-display">{{ $startTime }} - {{ $endTime }}</span>
                         </div>
                         @endif
                         @if($classroom->description)

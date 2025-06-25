@@ -52,11 +52,22 @@
                                 </td>
                                 <td>
                                     @if($classroom->schedules->count() > 0)
-                                        <small>
-                                            {{ date('h:i A', strtotime($classroom->schedules->first()->start_time)) }} 
-                                            - 
-                                            {{ date('h:i A', strtotime($classroom->schedules->first()->end_time)) }}
-                                        </small>
+                                        @php
+                                            $schedule = $classroom->schedules->first();
+                                            try {
+                                                if (strlen($schedule->start_time) > 8) {
+                                                    $startTime = \Carbon\Carbon::parse($schedule->start_time)->format('h:i A');
+                                                    $endTime = \Carbon\Carbon::parse($schedule->end_time)->format('h:i A');
+                                                } else {
+                                                    $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->start_time)->format('h:i A');
+                                                    $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->end_time)->format('h:i A');
+                                                }
+                                            } catch (\Exception $e) {
+                                                $startTime = date('h:i A', strtotime($schedule->start_time));
+                                                $endTime = date('h:i A', strtotime($schedule->end_time));
+                                            }
+                                        @endphp
+                                        <small class="time-display">{{ $startTime }} - {{ $endTime }}</small>
                                     @else
                                         <small class="text-muted">غير محدد</small>
                                     @endif

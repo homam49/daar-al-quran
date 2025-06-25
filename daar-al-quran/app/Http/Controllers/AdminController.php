@@ -67,7 +67,7 @@ class AdminController extends Controller
         if (!$success) {
             return back()->with('error', 'ليس لديك صلاحية للوصول إلى هذه المدرسة');
         }
-        
+            
         return back()->with('success', 'تمت الموافقة على انضمام المعلم للمدرسة بنجاح');
     }
 
@@ -87,7 +87,7 @@ class AdminController extends Controller
         if (!$success) {
             return back()->with('error', 'ليس لديك صلاحية للوصول إلى هذه المدرسة');
         }
-        
+            
         return back()->with('success', 'تم رفض طلب انضمام المعلم للمدرسة بنجاح');
     }
 
@@ -227,7 +227,7 @@ class AdminController extends Controller
     public function updatePassword(UpdatePasswordRequest $request)
     {
         $this->adminService->updatePassword($request->validated());
-        
+
         return back()->with('success', 'تم تغيير كلمة المرور بنجاح');
     }
 
@@ -240,7 +240,7 @@ class AdminController extends Controller
     public function updateUsername(UpdateUsernameRequest $request)
     {
         $this->adminService->updateUsername($request->validated());
-        
+
         return back()->with('success', 'تم تحديث اسم المستخدم بنجاح');
     }
 
@@ -253,7 +253,7 @@ class AdminController extends Controller
     public function updateName(UpdateNameRequest $request)
     {
         $this->adminService->updateName($request->validated());
-        
+
         return back()->with('success', 'تم تحديث الاسم بنجاح');
     }
 

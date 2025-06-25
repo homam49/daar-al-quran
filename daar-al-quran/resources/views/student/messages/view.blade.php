@@ -22,9 +22,17 @@
             <div>
                 <h5 class="mb-1">{{ $message->subject ?? 'رسالة بدون عنوان' }}</h5>
                 <small class="text-muted">
-                    @if($message->sender)
-                        <i class="fas fa-user-tie text-primary me-1"></i> من: {{ $message->sender->name }}
+                    @if($message->sender_type == 'student' && $message->sender_id == $student->id)
+                        {{-- Message sent by this student --}}
+                        <i class="fas fa-paper-plane text-success me-1"></i> إلى: {{ $message->recipient->name ?? 'معلم' }}
+                    @elseif($message->sender_type == 'student' && $message->sender_id != $student->id)
+                        {{-- Message sent by another student --}}
+                        <i class="fas fa-user-graduate text-info me-1"></i> من: {{ $message->sender->name ?? 'طالب' }}
+                    @elseif($message->sender_type == 'teacher')
+                        {{-- Message sent by a teacher --}}
+                        <i class="fas fa-user-tie text-primary me-1"></i> من: {{ $message->sender->name ?? 'معلم' }}
                     @else
+                        {{-- System message or unknown --}}
                         <i class="fas fa-bell text-secondary me-1"></i> إشعار نظام
                     @endif
                 </small>

@@ -20,7 +20,7 @@ class MemorizationUpdateRequest extends FormRequest
 
         $student = $this->route('student');
         if (!$student) {
-            return false;
+        return false;
         }
 
         // Check if teacher has access to this student through classrooms

@@ -59,7 +59,7 @@
                     @foreach($sessions as $session)
                     <tr>
                         <td>{{ $session->session_date->format('Y-m-d') }}</td>
-                        <td>{{ $session->start_time }} - {{ $session->end_time }}</td>
+                                                        <td><span class="time-display">{{ $session->start_time }} - {{ $session->end_time }}</span></td>
                         <td>
                             @php
                                 $totalStudents = $session->attendances->count();

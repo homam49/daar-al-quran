@@ -94,7 +94,7 @@
                             <tr>
                                 <td>{{ $attendance->classSession->session_date->format('Y-m-d') }}</td>
                                 <td>{{ $attendance->classSession->classRoom ? $attendance->classSession->classRoom->name : 'فصل غير معروف' }}</td>
-                                <td>{{ $attendance->classSession->start_time }} - {{ $attendance->classSession->end_time }}</td>
+                                <td><span class="time-display">{{ $attendance->classSession->start_time }} - {{ $attendance->classSession->end_time }}</span></td>
                                 <td>
                                     @if($attendance->status == 'present')
                                         <span class="badge bg-success">حاضر</span>

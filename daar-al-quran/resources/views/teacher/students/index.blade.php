@@ -7,7 +7,7 @@
         قائمة الطلاب - {{ $classroom->name }}
     </h1>
     <div>
-        <a href="{{ route('teacher.classroom.students.create', $classroom->id) }}" class="btn btn-primary">
+        <a href="{{ route('classroom.students.create', $classroom->id) }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> إضافة طالب
         </a>
         <a href="{{ route('classrooms.show', $classroom->id) }}" class="btn btn-secondary">
@@ -15,10 +15,6 @@
         </a>
     </div>
 </div>
-
-
-
-
 
 <div class="card shadow-sm">
     <div class="card-header bg-primary text-white">
@@ -45,8 +41,8 @@
                 </thead>
                 <tbody>
                     @foreach($students as $student)
-                    <tr data-search-text="{{ $student->first_name }} {{ $student->middle_name ?? '' }} {{ $student->last_name }} {{ $student->phone ?? '' }} {{ $student->username ?? '' }} {{ $student->address ?? '' }}">
-                        <td>{{ $student->first_name }} {{ $student->middle_name ?? '' }} {{ $student->last_name }}</td>
+                    <tr data-search-text="{{ $student->name }} {{ $student->phone ?? '' }} {{ $student->username ?? '' }} {{ $student->address ?? '' }}">
+                        <td>{{ $student->name }}</td>
                         <td>{{ $student->age }} سنة</td>
                         <td>{{ $student->phone ?? 'غير متوفر' }}</td>
                         <td><strong>{{ $student->username ?? 'غير متوفر' }}</strong></td>
@@ -56,16 +52,16 @@
                                 <a href="{{ route('teacher.memorization.show', $student->id) }}" class="btn btn-sm btn-success mb-1" title="متابعة حفظ القرآن">
                                     <i class="fas fa-book"></i> 📖
                                 </a>
-                                <a href="{{ route('teacher.classroom.students.edit', [$classroom->id, $student->id]) }}" class="btn btn-sm btn-primary mb-1" title="تعديل بيانات الطالب">
+                                <a href="{{ route('classroom.students.edit', [$classroom->id, $student->id]) }}" class="btn btn-sm btn-primary mb-1" title="تعديل بيانات الطالب">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <button class="btn btn-sm btn-info mb-1 view-credentials" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}" title="عرض بيانات الدخول">
+                                <button class="btn btn-sm btn-info mb-1 view-credentials" data-student-id="{{ $student->id }}" data-student-name="{{ $student->name }}" title="عرض بيانات الدخول">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="btn btn-sm btn-secondary mb-1 send-note-btn" data-student-id="{{ $student->id }}" data-student-name="{{ $student->first_name }} {{ $student->last_name }}" title="إرسال رسالة">
+                                <button class="btn btn-sm btn-secondary mb-1 send-note-btn" data-student-id="{{ $student->id }}" data-student-name="{{ $student->name }}" title="إرسال رسالة">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
-                                <form action="{{ route('teacher.classroom.students.remove', [$classroom->id, $student->id]) }}" method="POST" class="d-inline delete-form" onsubmit="return confirm('هل أنت متأكد من إزالة هذا الطالب من الفصل؟');">
+                                <form action="{{ route('classroom.students.remove', [$classroom->id, $student->id]) }}" method="POST" class="d-inline delete-form" onsubmit="return confirm('هل أنت متأكد من إزالة هذا الطالب من الفصل؟');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-danger mb-1" title="إزالة من الفصل">
@@ -85,7 +81,7 @@
                 <i class="fas fa-user-graduate text-muted fa-4x"></i>
             </div>
             <p class="lead">لا يوجد طلاب مسجلين في هذا الفصل</p>
-            <a href="{{ route('teacher.classroom.students.create', $classroom->id) }}" class="btn btn-primary">
+            <a href="{{ route('classroom.students.create', $classroom->id) }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> إضافة طالب جديد
             </a>
         </div>
@@ -99,7 +95,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="credentialsModalLabel{{ $student->id }}">بيانات تسجيل الدخول - {{ $student->full_name }}</h5>
+                <h5 class="modal-title" id="credentialsModalLabel{{ $student->id }}">بيانات تسجيل الدخول - {{ $student->name }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeCredentialsModal('{{ $student->id }}')"></button>
             </div>
             <div class="modal-body">
@@ -150,8 +146,8 @@
                         <input type="text" class="form-control" id="studentNameForNote" readonly>
                     </div>
                     <div class="mb-3">
-                        <label for="note_title" class="form-label">عنوان الرسالة</label>
-                        <input type="text" class="form-control" id="note_title" name="title" required>
+                        <label for="note_subject" class="form-label">عنوان الرسالة</label>
+                        <input type="text" class="form-control" id="note_subject" name="subject" required>
                     </div>
                     <div class="mb-3">
                         <label for="note_content" class="form-label">محتوى الرسالة</label>

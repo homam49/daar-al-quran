@@ -70,7 +70,7 @@
                                         $attendance = $session->attendances->where('student_id', $student->id)->first();
                                     @endphp
                                     <tr>
-                                        <td>{{ $student->full_name }}</td>
+                                                                                    <td>{{ $student->name }}</td>
                                         <td>
                                             <div class="btn-group" role="group">
                                                 <input type="radio" 

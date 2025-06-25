@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
 use App\Models\ClassRoom;
 use App\Models\ClassSession;
+use App\Models\Message;
 use App\Services\ClassSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

@@ -67,6 +67,14 @@ class Student extends Authenticatable implements CanResetPasswordContract, MustV
     }
 
     /**
+     * Get the name of the student (alias for full_name).
+     */
+    public function getNameAttribute()
+    {
+        return $this->full_name;
+    }
+
+    /**
      * Get the age of the student.
      */
     public function getAgeAttribute()

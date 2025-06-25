@@ -45,6 +45,7 @@ class TeacherService
             'memorization_stats' => $this->getMemorizationStats($classRooms),
             'today_sessions' => $this->getTodaySessions($classRooms),
             'recent_sessions' => $this->getRecentSessions($classRooms),
+            'unread_messages' => $this->getUnreadMessagesCount(),
             'classRooms' => $classRooms,
             'pendingSchools' => $pendingSchools,
         ];
@@ -167,6 +168,19 @@ class TeacherService
         }
         
         return $sessions;
+    }
+    
+    /**
+     * Get unread messages count for teacher
+     *
+     * @return int
+     */
+    private function getUnreadMessagesCount(): int
+    {
+        return \App\Models\Message::where('recipient_id', Auth::id())
+            ->where('sender_type', 'student')
+            ->whereNull('read_at')
+            ->count();
     }
     
     /**

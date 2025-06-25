@@ -78,15 +78,17 @@
                         
                         <div class="row mb-3">
                             <div class="col-md-6 mb-3">
-                                <label for="phone" class="form-label">رقم الهاتف</label>
+                                <label for="phone" class="form-label">رقم الهاتف <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-phone"></i></span>
                                     <input type="text" class="form-control @error('phone') is-invalid @enderror" 
-                                        id="phone" name="phone" value="{{ old('phone', $student->phone) }}">
+                                        id="phone" name="phone" value="{{ old('phone', $student->phone) }}" 
+                                        required placeholder="07XXXXXXX">
                                 </div>
                                 @error('phone')
                                     <div class="text-danger mt-1">{{ $message }}</div>
                                 @enderror
+                                <small class="text-muted">يجب أن يبدأ الرقم بـ 077 أو 078 أو 079</small>
                             </div>
                             
                             <div class="col-md-6 mb-3">

@@ -50,8 +50,26 @@
                                 </td>
                                 <td>
                                     @if($classroom->schedules->count() > 0)
-                                        {{ date('h:i A', strtotime($classroom->schedules->first()->start_time)) }} - 
-                                        {{ date('h:i A', strtotime($classroom->schedules->first()->end_time)) }}
+                                        @php
+                                            $schedule = $classroom->schedules->first();
+                                            try {
+                                                // Try different time formats
+                                                if (strlen($schedule->start_time) > 8) {
+                                                    // Full datetime format
+                                                    $startTime = \Carbon\Carbon::parse($schedule->start_time)->format('h:i A');
+                                                    $endTime = \Carbon\Carbon::parse($schedule->end_time)->format('h:i A');
+                                                } else {
+                                                    // Time only format (H:i:s or H:i)
+                                                    $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->start_time)->format('h:i A');
+                                                    $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->end_time)->format('h:i A');
+                                                }
+                                            } catch (\Exception $e) {
+                                                // Fallback to simple formatting
+                                                $startTime = date('h:i A', strtotime($schedule->start_time));
+                                                $endTime = date('h:i A', strtotime($schedule->end_time));
+                                            }
+                                        @endphp
+                                        <span class="time-display">{{ $startTime }} - {{ $endTime }}</span>
                                     @else
                                         <span class="text-muted">غير محدد</span>
                                     @endif
