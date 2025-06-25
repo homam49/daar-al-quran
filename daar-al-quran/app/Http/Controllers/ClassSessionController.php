@@ -34,7 +34,7 @@ class ClassSessionController extends Controller
     public function index(ClassRoom $classroom)
     {
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
 
@@ -71,7 +71,7 @@ class ClassSessionController extends Controller
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -156,7 +156,7 @@ class ClassSessionController extends Controller
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -181,7 +181,7 @@ class ClassSessionController extends Controller
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -207,7 +207,7 @@ class ClassSessionController extends Controller
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -297,7 +297,7 @@ class ClassSessionController extends Controller
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Check if the teacher owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
         

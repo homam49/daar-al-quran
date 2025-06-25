@@ -79,7 +79,7 @@ class MemorizationProgressSeeder extends Seeder
                         'status' => $progress['status'],
                         'teacher_id' => $teacher->id,
                         'notes' => $progress['notes'],
-                        'started_at' => $progress['status'] !== 'not_started' ? now()->subDays(rand(10, 60)) : null,
+                        'started_at' => $progress['status'] != 'not_started' ? now()->subDays(rand(10, 60)) : null,
                         'completed_at' => $progress['status'] === 'memorized' ? now()->subDays(rand(1, 30)) : null,
                         'last_reviewed_at' => $progress['status'] === 'reviewed' ? now()->subDays(rand(1, 15)) : null,
                     ]);

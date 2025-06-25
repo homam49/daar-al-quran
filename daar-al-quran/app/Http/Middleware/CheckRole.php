@@ -16,7 +16,7 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, $role)
     {
-        if (!$request->user() || $request->user()->role->name !== $role) {
+        if (!$request->user() || $request->user()->role->name != $role) {
             abort(403, 'غير مصرح لك بالوصول إلى هذه الصفحة');
         }
 

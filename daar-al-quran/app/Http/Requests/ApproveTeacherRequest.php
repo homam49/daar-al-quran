@@ -25,7 +25,7 @@ class ApproveTeacherRequest extends FormRequest
             ->where('admin_id', Auth::id())
             ->first();
             
-        return $school !== null;
+        return $school != null;
     }
 
     /**

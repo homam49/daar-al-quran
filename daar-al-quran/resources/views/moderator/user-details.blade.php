@@ -82,7 +82,7 @@
             <div class="card-footer">
                 <div class="d-flex justify-content-between">
                     <div>
-                        @if(!$user->is_approved && $user->role->name !== 'moderator')
+                        @if(!$user->is_approved && $user->role->name != 'moderator')
                             <form method="POST" action="{{ route('moderator.users.approve', $user->id) }}" class="d-inline">
                                 @csrf
                                 <button type="submit" class="btn btn-success">
@@ -92,7 +92,7 @@
                         @endif
                     </div>
                     <div>
-                        @if($user->role->name !== 'moderator')
+                        @if($user->role->name != 'moderator')
                             <form method="POST" action="{{ route('moderator.users.delete', $user->id) }}" class="d-inline">
                                 @csrf
                                 @method('DELETE')

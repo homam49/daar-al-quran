@@ -158,8 +158,8 @@ class MessageController extends Controller
             // Verify that the classroom belongs to the teacher
             $classroom = ClassRoom::findOrFail($request->class_room_id);
             
-            if ($classroom->user_id !== Auth::id()) {
-                return back()->with('error', 'الفصل ليس من فصولك');
+            if ($classroom->user_id != Auth::id()) {
+                abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
             }
             
             // Get all students in the class
@@ -198,9 +198,8 @@ class MessageController extends Controller
         $message = Message::findOrFail($id);
         
         // Only allow replying to messages from students
-        if ($message->sender_type !== 'student' || $message->recipient_id !== Auth::id()) {
-            return redirect()->route('teacher.messages')
-                ->with('error', 'لا يمكنك الرد على هذه الرسالة');
+        if ($message->sender_type != 'student' || $message->recipient_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بعرض هذه الرسالة');
         }
         
         return view('teacher.messages.reply', compact('message'));
@@ -218,9 +217,8 @@ class MessageController extends Controller
         $originalMessage = Message::findOrFail($id);
         
         // Only allow replying to messages from students
-        if ($originalMessage->sender_type !== 'student' || $originalMessage->recipient_id !== Auth::id()) {
-            return redirect()->route('teacher.messages')
-                ->with('error', 'لا يمكنك الرد على هذه الرسالة');
+        if ($originalMessage->sender_type != 'student' || $originalMessage->recipient_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بالرد على هذه الرسالة');
         }
         
         $request->validate([
@@ -259,10 +257,8 @@ class MessageController extends Controller
         $message = Message::findOrFail($id);
         
         // Ensure the message is directed to this teacher
-        if ($message->recipient_id !== Auth::id()) {
-            return request()->ajax() 
-                ? response()->json(['error' => 'Unauthorized'], 403)
-                : redirect()->route('teacher.messages')->with('error', 'غير مصرح بالوصول إلى هذه الرسالة');
+        if ($message->recipient_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بقراءة هذه الرسالة');
         }
         
         // Only update if the message is not already marked as read

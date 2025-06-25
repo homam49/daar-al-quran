@@ -48,7 +48,7 @@ foreach ($bladeFiles as $bladeFile) {
     }
     
     // Check if content was modified
-    if ($content !== $originalContent) {
+    if ($content != $originalContent) {
         // Write the modified content back to the file
         file_put_contents($bladeFile, $content);
         echo "Removed duplicate messages from: " . basename($bladeFile) . "\n";

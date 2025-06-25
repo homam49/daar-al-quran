@@ -283,7 +283,7 @@
             <!-- User Password Form -->
             <form method="POST" action="{{ $passwordUpdateRoute }}">
                 @csrf
-                @if($user->role->name !== 'moderator')
+                @if($user->role->name != 'moderator')
                     <!-- Admin and teacher use POST -->
                 @else
                     <!-- Moderator uses PUT -->

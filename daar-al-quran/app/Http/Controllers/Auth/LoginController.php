@@ -62,10 +62,10 @@ class LoginController extends Controller
                 return redirect()->route('verification.notice')->with('email', $email);
             }
 
-            if (!$user->is_approved && $user->role->name !== 'moderator') {
+            if (!$user->is_approved && $user->role->name != 'moderator') {
                 Auth::logout();
                 return redirect()->route('login')
-                    ->with('error', 'حسابك لم يتم الموافقة عليه بعد. يرجى الانتظار حتى تتم الموافقة.');
+                    ->with('error', 'حسابك لم يتم الموافقة عليه بعد من قبل الإدارة');
             }
 
             // Redirect based on role

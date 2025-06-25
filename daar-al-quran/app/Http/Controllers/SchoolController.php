@@ -97,9 +97,8 @@ class SchoolController extends Controller
     public function show(School $school)
     {
         // Make sure the admin owns this school
-        if ($school->admin_id !== Auth::id()) {
-            return redirect()->route('admin.dashboard')
-                ->with('error', 'ليس لديك صلاحية الوصول لهذه المدرسة');
+        if ($school->admin_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بعرض هذه المدرسة');
         }
         
         return redirect()->route('admin.dashboard');
@@ -114,9 +113,8 @@ class SchoolController extends Controller
     public function edit(School $school)
     {
         // Make sure the admin owns this school
-        if ($school->admin_id !== Auth::id()) {
-            return redirect()->route('admin.dashboard')
-                ->with('error', 'ليس لديك صلاحية تعديل هذه المدرسة');
+        if ($school->admin_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بتعديل هذه المدرسة');
         }
         
         return view('admin.schools.edit', compact('school'));
@@ -132,9 +130,8 @@ class SchoolController extends Controller
     public function update(Request $request, School $school)
     {
         // Make sure the admin owns this school
-        if ($school->admin_id !== Auth::id()) {
-            return redirect()->route('admin.dashboard')
-                ->with('error', 'ليس لديك صلاحية تعديل هذه المدرسة');
+        if ($school->admin_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بتعديل هذه المدرسة');
         }
         
         $request->validate([
@@ -176,9 +173,8 @@ class SchoolController extends Controller
     public function destroy(School $school)
     {
         // Make sure the admin owns this school
-        if ($school->admin_id !== Auth::id()) {
-            return redirect()->route('admin.dashboard')
-                ->with('error', 'ليس لديك صلاحية حذف هذه المدرسة');
+        if ($school->admin_id != Auth::id()) {
+            abort(403, 'غير مصرح لك بحذف هذه المدرسة');
         }
         
         $school->delete();

@@ -130,7 +130,7 @@ class ClassRoomController extends Controller
     public function show(ClassRoom $classroom)
     {
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
         }
 
@@ -155,7 +155,7 @@ class ClassRoomController extends Controller
     public function edit(ClassRoom $classroom)
     {
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بتعديل هذا الفصل');
         }
 
@@ -179,7 +179,7 @@ class ClassRoomController extends Controller
     public function update(Request $request, ClassRoom $classroom)
     {
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بتعديل هذا الفصل');
         }
 
@@ -222,7 +222,7 @@ class ClassRoomController extends Controller
     public function destroy(ClassRoom $classroom)
     {
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بحذف هذا الفصل');
         }
 
@@ -251,8 +251,8 @@ class ClassRoomController extends Controller
         $classroom = ClassRoom::findOrFail($request->classroom_id);
         
         // Check if the authenticated user owns this classroom
-        if ($classroom->user_id !== auth()->id()) {
-            return back()->with('error', 'غير مصرح لك بإرسال إشعارات لهذا الفصل');
+        if ($classroom->user_id != auth()->id()) {
+            return response()->json(['error' => 'غير مصرح لك بالوصول إلى هذا الفصل'], 403);
         }
         
         // Get all students in the classroom

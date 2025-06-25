@@ -59,7 +59,7 @@ class SchoolDeletionController extends Controller
             return redirect()->route('admin.dashboard')->with('success', "تم حذف المدرسة '$schoolName' بنجاح");
         }
 
-        if ($school->deletion_code !== $request->deletion_code) {
+        if ($school->deletion_code != $request->deletion_code) {
             return back()->with('error', 'رمز الحذف غير صحيح');
         }
 
@@ -110,8 +110,8 @@ class SchoolDeletionController extends Controller
     public function truncateDatabase()
     {
         // This requires confirmation with a separate form and possibly admin credentials
-        if (auth()->user()->type !== 'moderator') {
-            abort(403, 'غير مصرح لك بهذه العملية');
+        if (auth()->user()->type != 'moderator') {
+            abort(403, 'غير مصرح لك بهذا الإجراء');
         }
 
         // Delete all schools (which will cascade to classrooms, students, etc.)

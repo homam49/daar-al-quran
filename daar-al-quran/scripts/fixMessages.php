@@ -113,7 +113,7 @@ function processDirectory($dirPath, $excludeDirs, $patterns) {
             }
             
             // If content changed, save the file
-            if ($content !== $originalContent) {
+            if ($content != $originalContent) {
                 file_put_contents($path, $content);
                 $modifiedCount++;
                 echo "Modified: " . str_replace(__DIR__ . '/../', '', $path) . "\n";

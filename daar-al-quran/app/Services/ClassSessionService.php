@@ -21,7 +21,7 @@ class ClassSessionService
         $classroom = ClassRoom::with('students')->findOrFail($classroomId);
         
         // Verify ownership
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             throw new \Exception('غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -79,7 +79,7 @@ class ClassSessionService
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Verify ownership
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             throw new \Exception('غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -191,7 +191,7 @@ class ClassSessionService
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Verify ownership
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             throw new \Exception('غير مصرح لك بالوصول إلى هذا الفصل');
         }
         
@@ -261,7 +261,7 @@ class ClassSessionService
         $classroom = ClassRoom::findOrFail($classroomId);
         
         // Verify ownership
-        if ($classroom->user_id !== Auth::id()) {
+        if ($classroom->user_id != Auth::id()) {
             throw new \Exception('غير مصرح لك بالوصول إلى هذا الفصل');
         }
         

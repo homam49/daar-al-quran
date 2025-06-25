@@ -182,7 +182,7 @@ class StudentAuthController extends Controller
         ];
         
         // Handle email change - reset verification if email changed
-        $emailChanged = $student->email !== $request->email;
+        $emailChanged = $student->email != $request->email;
         if ($emailChanged) {
             $updateData['email_verified_at'] = null;
         }

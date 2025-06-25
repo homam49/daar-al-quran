@@ -91,7 +91,7 @@ class MemorizationService
             'status' => $data['status'],
             'teacher_id' => $teacherId,
             'notes' => $data['notes'] ?? null,
-            'started_at' => $data['status'] !== 'not_started' ? now() : null,
+            'started_at' => $data['status'] != 'not_started' ? now() : null,
             'completed_at' => $data['status'] === 'memorized' ? now() : null,
         ];
 

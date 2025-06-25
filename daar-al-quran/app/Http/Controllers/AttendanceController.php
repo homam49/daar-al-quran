@@ -29,7 +29,7 @@ class AttendanceController extends Controller
     public function edit(ClassSession $session)
     {
         // Check if the authenticated user owns the classroom of this session
-        if ($session->classRoom->user_id !== Auth::id()) {
+        if ($session->classRoom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بالوصول إلى هذه الجلسة');
         }
 
@@ -50,7 +50,7 @@ class AttendanceController extends Controller
     public function update(Request $request, ClassSession $session)
     {
         // Check if the authenticated user owns the classroom of this session
-        if ($session->classRoom->user_id !== Auth::id()) {
+        if ($session->classRoom->user_id != Auth::id()) {
             abort(403, 'غير مصرح لك بالوصول إلى هذه الجلسة');
         }
 

@@ -100,7 +100,7 @@ class AdminController extends Controller
     public function approveTeacher(User $user)
     {
         // Check if the user is a teacher
-        if ($user->role->name !== 'teacher') {
+        if ($user->role->name != 'teacher') {
             return back()->with('error', 'هذا المستخدم ليس معلماً');
         }
 
@@ -119,7 +119,7 @@ class AdminController extends Controller
     public function deleteTeacher(User $user)
     {
         // Check if the user is a teacher
-        if ($user->role->name !== 'teacher') {
+        if ($user->role->name != 'teacher') {
             return back()->with('error', 'هذا المستخدم ليس معلماً');
         }
         
@@ -137,7 +137,7 @@ class AdminController extends Controller
     public function showTeacher(User $user)
     {
         // Check if the user is actually a teacher
-        if ($user->role->name !== 'teacher') {
+        if ($user->role->name != 'teacher') {
             return redirect()->route('admin.teachers')->with('error', 'المستخدم المحدد ليس معلماً');
         }
         

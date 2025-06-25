@@ -79,7 +79,7 @@
                                             </form>
                                         @endif
                                         
-                                        @if($user->role->name !== 'moderator')
+                                        @if($user->role->name != 'moderator')
                                             <form method="POST" action="{{ route('moderator.users.delete', $user->id) }}" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
