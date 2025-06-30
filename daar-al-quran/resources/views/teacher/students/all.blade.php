@@ -7,9 +7,16 @@
             <h4 class="mb-0"><i class="fas fa-user-graduate me-2"></i>جميع الطلاب</h4>
         </div>
         <div class="col-auto">
-            <a href="{{ route('classrooms.index') }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-chalkboard me-1"></i> عرض الفصول
-            </a>
+            <div class="btn-group">
+                @if($students->count() > 0)
+                <button type="button" class="btn btn-primary btn-sm" onclick="generateSelectedPdf()" disabled id="pdfSelectedBtn">
+                    <i class="fas fa-file-pdf"></i> PDF للمختارين
+                </button>
+                @endif
+                <a href="{{ route('classrooms.index') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-chalkboard me-1"></i> عرض الفصول
+                </a>
+            </div>
         </div>
     </div>
 </div>
@@ -48,6 +55,11 @@
                 <table class="table table-hover" id="studentsTable">
                     <thead>
                         <tr>
+                            @if($students->count() > 0)
+                            <th width="5%">
+                                <input type="checkbox" id="selectAllStudents" onclick="toggleAllStudents()" title="تحديد الكل">
+                            </th>
+                            @endif
                             <th>اسم الطالب</th>
                             <th>العمر</th>
                             <th>الفصول</th>
@@ -61,8 +73,11 @@
                         @foreach($students as $student)
                         <tr 
                             data-school-id="{{ $student->school_id }}"
-                                                            data-search-text="{{ $student->name }} {{ $student->age }} {{ $student->school->name ?? '' }} {{ $student->username ?? '' }}"
+                            data-search-text="{{ $student->name }} {{ $student->age }} {{ $student->school->name ?? '' }} {{ $student->username ?? '' }}"
                         >
+                            <td>
+                                <input type="checkbox" class="student-checkbox" value="{{ $student->id }}" onclick="updateSelectedCount()" title="اختيار الطالب">
+                            </td>
                             <td>{{ $student->name }}</td>
                             <td>{{ $student->age }} سنة</td>
                             <td>
@@ -277,5 +292,96 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Global functions for PDF generation and checkbox handling
+function toggleAllStudents() {
+    console.log('toggleAllStudents called');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+    
+    if (!selectAllCheckbox) {
+        console.error('Select all checkbox not found');
+        return;
+    }
+    
+    console.log('Select all checkbox checked:', selectAllCheckbox.checked);
+    console.log('Found', studentCheckboxes.length, 'student checkboxes');
+    
+    studentCheckboxes.forEach(function(checkbox) {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    console.log('updateSelectedCount called');
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    const selectedCount = selectedCheckboxes.length;
+    const pdfButton = document.getElementById('pdfSelectedBtn');
+    
+    console.log('Selected count:', selectedCount);
+    console.log('PDF button found:', !!pdfButton);
+    
+    if (pdfButton) {
+        if (selectedCount > 0) {
+            pdfButton.disabled = false;
+            pdfButton.classList.remove('btn-secondary');
+            pdfButton.classList.add('btn-primary');
+        } else {
+            pdfButton.disabled = true;
+            pdfButton.classList.remove('btn-primary');
+            pdfButton.classList.add('btn-secondary');
+        }
+    }
+    
+    // Update select all checkbox state
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const allCheckboxes = document.querySelectorAll('.student-checkbox');
+    
+    if (selectAllCheckbox && allCheckboxes.length > 0) {
+        selectAllCheckbox.checked = selectedCount === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < allCheckboxes.length;
+    }
+}
+
+function generateSelectedPdf() {
+    console.log('generateSelectedPdf called');
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    console.log('Selected student IDs:', selectedIds);
+    
+    if (selectedIds.length === 0) {
+        alert('يرجى اختيار طالب واحد على الأقل');
+        return;
+    }
+    
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ route("teacher.students.credentials.pdf") }}';
+    form.style.display = 'none';
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = '{{ csrf_token() }}';
+    form.appendChild(csrfInput);
+    
+    // Add selected student IDs
+    selectedIds.forEach(function(id) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'student_ids[]';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
 </script>
 @endsection 

@@ -17,8 +17,21 @@
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-header bg-primary text-white">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-list me-2"></i>جميع الطلاب المسجلين في الفصل</h5>
+        @if(count($students) > 0)
+        <div class="btn-group">
+            <button type="button" class="btn btn-light btn-sm" onclick="generateSelectedPdf()" disabled id="pdfSelectedBtn">
+                <i class="fas fa-file-pdf"></i> PDF للمختارين
+            </button>
+            <form action="{{ route('classroom.students.credentials.pdf', $classroom->id) }}" method="POST" class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-warning btn-sm">
+                    <i class="fas fa-file-pdf"></i> PDF لجميع الطلاب
+                </button>
+            </form>
+        </div>
+        @endif
     </div>
     <div class="card-body">
         @if(count($students) > 0)
@@ -31,6 +44,9 @@
             <table class="table table-bordered table-hover" id="studentsTable">
                 <thead class="bg-light">
                     <tr>
+                        <th width="5%">
+                            <input type="checkbox" id="selectAll" onclick="toggleAllStudents()" title="تحديد الكل">
+                        </th>
                         <th width="25%">اسم الطالب</th>
                         <th>العمر</th>
                         <th>رقم الهاتف</th>
@@ -42,6 +58,9 @@
                 <tbody>
                     @foreach($students as $student)
                     <tr data-search-text="{{ $student->name }} {{ $student->phone ?? '' }} {{ $student->username ?? '' }} {{ $student->address ?? '' }}">
+                        <td>
+                            <input type="checkbox" class="student-checkbox" value="{{ $student->id }}" onclick="updateSelectedCount()" title="اختيار الطالب">
+                        </td>
                         <td>{{ $student->name }}</td>
                         <td>{{ $student->age }} سنة</td>
                         <td>{{ $student->phone ?? 'غير متوفر' }}</td>
@@ -167,64 +186,176 @@
 
 @section('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handle view credentials buttons
-        const viewCredentialsButtons = document.querySelectorAll('.view-credentials');
-        viewCredentialsButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const studentId = this.getAttribute('data-student-id');
-                openCredentialsModal(studentId);
-            });
+document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Check if elements exist
+    console.log('Page loaded, checking elements...');
+    console.log('Select All checkbox:', document.getElementById('selectAll'));
+    console.log('Student checkboxes:', document.querySelectorAll('.student-checkbox'));
+    console.log('PDF button:', document.querySelector('button[onclick="generateSelectedPdf()"]'));
+    
+    // Handle view credentials buttons
+    const viewCredentialsButtons = document.querySelectorAll('.view-credentials');
+    viewCredentialsButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            openCredentialsModal(studentId);
         });
-        
-        // Handle send note buttons
-        const sendNoteButtons = document.querySelectorAll('.send-note-btn');
-        sendNoteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const studentId = this.getAttribute('data-student-id');
-                const studentName = this.getAttribute('data-student-name');
-                
-                document.getElementById('studentIdForNote').value = studentId;
-                document.getElementById('studentNameForNote').value = studentName;
-                
-                const modal = new bootstrap.Modal(document.getElementById('sendNoteModal'));
-                modal.show();
-            });
-        });
-        
-        // Functions for credential modals
-        function openCredentialsModal(studentId) {
-            const modal = new bootstrap.Modal(document.getElementById(`credentialsModal${studentId}`));
-            modal.show();
-        }
-        
-        function closeCredentialsModal(studentId) {
-            const modalElement = document.getElementById(`credentialsModal${studentId}`);
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
-        }
-        
-        function copyToClipboard(fieldId) {
-            const field = document.getElementById(fieldId);
-            field.select();
-            document.execCommand('copy');
-            
-            // Show a temporary "copied" message
-            const button = field.nextElementSibling;
-            const originalHTML = button.innerHTML;
-            
-            button.innerHTML = '<i class="fas fa-check"></i> تم النسخ';
-            setTimeout(function() {
-                button.innerHTML = originalHTML;
-            }, 1500);
-        }
-        
-        // Add global functions so they can be called from HTML
-        window.openCredentialsModal = openCredentialsModal;
-        window.closeCredentialsModal = closeCredentialsModal;
-        window.copyToClipboard = copyToClipboard;
     });
+    
+    // Handle send note buttons
+    const sendNoteButtons = document.querySelectorAll('.send-note-btn');
+    sendNoteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            const studentName = this.getAttribute('data-student-name');
+            
+            document.getElementById('studentIdForNote').value = studentId;
+            document.getElementById('studentNameForNote').value = studentName;
+            
+            const modal = new bootstrap.Modal(document.getElementById('sendNoteModal'));
+            modal.show();
+        });
+    });
+    
+    // Functions for credential modals
+    function openCredentialsModal(studentId) {
+        const modal = new bootstrap.Modal(document.getElementById(`credentialsModal${studentId}`));
+        modal.show();
+    }
+    
+    function closeCredentialsModal(studentId) {
+        const modalElement = document.getElementById(`credentialsModal${studentId}`);
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    function copyToClipboard(fieldId) {
+        const field = document.getElementById(fieldId);
+        field.select();
+        document.execCommand('copy');
+        
+        // Show a temporary "copied" message
+        const button = field.nextElementSibling;
+        const originalHTML = button.innerHTML;
+        
+        button.innerHTML = '<i class="fas fa-check"></i> تم النسخ';
+        setTimeout(function() {
+            button.innerHTML = originalHTML;
+        }, 1500);
+    }
+    
+    // Make functions globally accessible
+    window.openCredentialsModal = openCredentialsModal;
+    window.closeCredentialsModal = closeCredentialsModal;
+    window.copyToClipboard = copyToClipboard;
+});
+
+// PDF Generation Functions (Global scope for onclick handlers)
+function toggleAllStudents() {
+    console.log('toggleAllStudents called');
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    
+    console.log('Select All:', selectAll);
+    console.log('Checkboxes found:', checkboxes.length);
+    
+    if (selectAll && checkboxes.length > 0) {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll.checked;
+        });
+        updateSelectedCount();
+    }
+}
+
+function updateSelectedCount() {
+    console.log('updateSelectedCount called');
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    const generateBtn = document.getElementById('pdfSelectedBtn');
+    
+    console.log('Selected checkboxes:', selectedCheckboxes.length);
+    console.log('Generate button:', generateBtn);
+    
+    if (generateBtn) {
+        const count = selectedCheckboxes.length;
+        if (count > 0) {
+            generateBtn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF للمختارين (' + count + ')';
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('btn-light');
+            generateBtn.classList.add('btn-success');
+        } else {
+            generateBtn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF للمختارين';
+            generateBtn.disabled = true;
+            generateBtn.classList.remove('btn-success');
+            generateBtn.classList.add('btn-light');
+        }
+    }
+}
+
+function generateSelectedPdf() {
+    console.log('generateSelectedPdf called');
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    
+    console.log('Selected checkboxes for PDF:', selectedCheckboxes.length);
+    
+    if (selectedCheckboxes.length === 0) {
+        alert('يرجى اختيار طالب واحد على الأقل');
+        return;
+    }
+    
+    const studentIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    console.log('Student IDs:', studentIds);
+    
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ route("classroom.students.credentials.pdf", $classroom->id) }}';
+    form.style.display = 'none';
+    
+    // Add CSRF token
+    const csrfToken = document.createElement('input');
+    csrfToken.type = 'hidden';
+    csrfToken.name = '_token';
+    csrfToken.value = '{{ csrf_token() }}';
+    form.appendChild(csrfToken);
+    
+    // Add student IDs
+    studentIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'student_ids[]';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+    
+    // Clean up
+    setTimeout(() => {
+        document.body.removeChild(form);
+    }, 1000);
+}
+
+// Add event listeners after page load
+window.addEventListener('load', function() {
+    console.log('Window loaded, adding event listeners...');
+    
+    // Add change event listener to all student checkboxes
+    const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+    studentCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // Add change event listener to select all checkbox
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', toggleAllStudents);
+    }
+    
+    // Initial count update
+    updateSelectedCount();
+});
 </script>
 @endsection 

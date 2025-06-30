@@ -42,6 +42,10 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     Route::post('/classroom/{classroom}/students/note', [StudentController::class, 'sendNote'])->name('classroom.students.note');
     Route::get('/classrooms/{classroom}/students/{student}/credentials', [StudentController::class, 'viewCredentials'])->name('classroom.students.credentials');
     
+    // PDF generation routes
+    Route::post('/classrooms/{classroom}/students/credentials/pdf', [TeacherController::class, 'generateClassroomCredentialsPdf'])->name('classroom.students.credentials.pdf');
+    Route::post('/students/credentials/pdf', [TeacherController::class, 'generateSelectedCredentialsPdf'])->name('teacher.students.credentials.pdf');
+    
     // Session routes
     Route::get('/sessions', [ClassSessionController::class, 'allSessions'])->name('sessions.index');
     

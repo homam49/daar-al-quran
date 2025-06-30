@@ -199,6 +199,66 @@ class TeacherController extends Controller
     }
 
     /**
+     * Generate PDF with student credentials for a specific classroom
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $classroomId
+     * @return \Symfony\Component\HttpFoundation\Response
+     */
+    public function generateClassroomCredentialsPdf(Request $request, $classroomId)
+    {
+        try {
+            $classroom = ClassRoom::where('user_id', Auth::id())
+                ->findOrFail($classroomId);
+
+            $studentIds = $request->input('student_ids', []);
+            
+            $pdfContent = $this->teacherService->generateStudentCredentialsPdf(
+                $studentIds, 
+                $classroomId
+            );
+            
+            $filename = 'student_credentials_' . $classroom->name . '_' . date('Y-m-d') . '.pdf';
+            
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+                
+        } catch (\Exception $e) {
+            return back()->with('error', 'حدث خطأ في إنشاء ملف PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate PDF with credentials for selected students across classrooms
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Symfony\Component\HttpFoundation\Response
+     */
+    public function generateSelectedCredentialsPdf(Request $request)
+    {
+        $request->validate([
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'exists:students,id'
+        ]);
+
+        try {
+            $pdfContent = $this->teacherService->generateStudentCredentialsPdf(
+                $request->student_ids
+            );
+            
+            $filename = 'selected_student_credentials_' . date('Y-m-d') . '.pdf';
+            
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+                
+        } catch (\Exception $e) {
+            return back()->with('error', 'حدث خطأ في إنشاء ملف PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Get a list of students for a classroom in JSON format.
      *
      * @param  int  $classroom

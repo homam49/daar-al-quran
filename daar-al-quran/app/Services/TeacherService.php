@@ -8,9 +8,12 @@ use App\Models\ClassRoom;
 use App\Models\ClassSession;
 use App\Models\Student;
 use App\Models\MemorizationProgress;
+use App\Models\Attendance;
+use App\Services\PdfCredentialService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Collection;
 
 class TeacherService
 {
@@ -362,5 +365,53 @@ class TeacherService
         }
         
         return compact('students', 'classrooms');
+    }
+    
+    /**
+     * Generate PDF with student credentials and QR codes
+     *
+     * @param array $studentIds
+     * @param int|null $classroomId
+     * @return string
+     */
+    public function generateStudentCredentialsPdf(array $studentIds = [], int $classroomId = null): string
+    {
+        $teacherId = Auth::id();
+        
+        if ($classroomId) {
+            // Generate for specific classroom
+            $classroom = ClassRoom::where('user_id', $teacherId)
+                ->findOrFail($classroomId);
+            
+            if (!empty($studentIds)) {
+                // Get specific students from the classroom
+                $students = $classroom->students()
+                    ->whereIn('students.id', $studentIds)
+                    ->get();
+            } else {
+                // Get all students from the classroom
+                $students = $classroom->students;
+            }
+            
+            $title = 'بيانات تسجيل الدخول - فصل ' . $classroom->name;
+        } else {
+            // Generate for selected students across all teacher's classrooms
+            $students = Student::whereIn('id', $studentIds)
+                ->whereHas('classRooms', function ($query) use ($teacherId) {
+                    $query->where('class_rooms.user_id', $teacherId);
+                })
+                ->get();
+                
+            $title = 'بيانات تسجيل الدخول للطلاب المختارين';
+        }
+        
+        if ($students->isEmpty()) {
+            throw new \Exception('لا توجد طلاب للإنشاء PDF');
+        }
+        
+        $youtubeUrl = config('app.youtube_tutorial_url');
+        $pdfService = new PdfCredentialService();
+        
+        return $pdfService->generateCredentialsPdf($students, $youtubeUrl, $title);
     }
 } 

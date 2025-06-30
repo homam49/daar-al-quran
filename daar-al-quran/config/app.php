@@ -58,6 +58,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | YouTube Tutorial URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL will be embedded in QR codes on student credential PDFs
+    | to provide easy access to tutorial videos for using the website.
+    |
+    */
+
+    'youtube_tutorial_url' => env('YOUTUBE_TUTORIAL_URL', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
