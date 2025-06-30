@@ -71,8 +71,8 @@
                     <form action="{{ route('admin.teachers.delete', $user->id) }}" method="POST" class="d-inline">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-danger" onclick="return confirm('هل أنت متأكد من إزالة هذا المعلم من مدارسك؟ سيتم حذف جميع الفصول والجلسات التي أنشأها.')">
-                            <i class="fas fa-trash me-1"></i> إزالة من المدارس
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('هل أنت متأكد من إزالة هذا المعلم من مدارسك؟ سيتم حذف جميع الفصول والجلسات التي أنشأها في مدارسك.')">
+                            <i class="fas fa-trash me-1"></i> إزالة من مدارسي
                         </button>
                     </form>
                 </div>
@@ -87,40 +87,15 @@
             </div>
             <div class="card-body">
                 <div class="row text-center">
-                    <div class="col-4 mb-3">
-                        <h5>{{ $teacherSchools->count() }}</h5>
-                        <span class="text-muted">عدد المدارس</span>
-                    </div>
-                    <div class="col-4 mb-3">
+                    <div class="col-6 mb-3">
                         <h5>{{ $classrooms->count() }}</h5>
                         <span class="text-muted">عدد الفصول</span>
                     </div>
-                    <div class="col-4 mb-3">
+                    <div class="col-6 mb-3">
                         <h5>{{ $classrooms->sum(function($classroom) { return $classroom->students->count(); }) }}</h5>
                         <span class="text-muted">عدد الطلاب</span>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="card shadow-sm mt-4">
-            <div class="card-header">
-                <h5 class="mb-0">المدارس المنضم إليها</h5>
-            </div>
-            <div class="card-body">
-                @if($teacherSchools->count() > 0)
-                <ul class="list-group">
-                    @foreach($teacherSchools as $school)
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ $school->name }}
-                    </li>
-                    @endforeach
-                </ul>
-                @else
-                <div class="text-center py-3">
-                    <p class="mb-0">لم ينضم المعلم إلى أي من مدارسك بعد</p>
-                </div>
-                @endif
             </div>
         </div>
     </div>

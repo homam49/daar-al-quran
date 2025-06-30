@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Student;
+use App\Models\School;
 use App\Services\AdminService;
 use App\Http\Requests\ApproveTeacherRequest;
 use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateNameRequest;
 use App\Http\Requests\UpdateUsernameRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -125,7 +127,7 @@ class AdminController extends Controller
         
         $this->adminService->deleteTeacher($user);
         
-        return back()->with('success', 'تم إزالة المعلم من مدارسِك وحذف فصوله بنجاح');
+        return redirect()->route('admin.teachers')->with('success', 'تم إزالة المعلم من مدارسِك وحذف فصوله بنجاح');
     }
 
     /**
@@ -154,20 +156,13 @@ class AdminController extends Controller
             return redirect()->route('admin.teachers')->with('error', 'غير مصرح لك بعرض هذا المعلم');
         }
         
-        // Get the teacher's schools that the admin manages
-        $teacherSchools = School::where('admin_id', Auth::id())
-            ->whereHas('teachers', function($query) use ($user) {
-                $query->where('users.id', $user->id);
-            })
-            ->get();
-        
-        // Get classrooms created by this teacher in admin's schools
+        // Get classrooms created by this teacher in admin's schools only
         $classrooms = $user->classRooms()
             ->whereIn('school_id', $adminSchools)
             ->with('school')
             ->get();
         
-        return view('admin.show-teacher', compact('user', 'teacherSchools', 'classrooms'));
+        return view('admin.show-teacher', compact('user', 'classrooms'));
     }
 
     

@@ -253,7 +253,7 @@ class AdminService
     }
     
     /**
-     * Delete teacher and cleanup
+     * Remove teacher from admin's schools only
      *
      * @param User $user
      * @return void
@@ -269,14 +269,8 @@ class AdminService
             ->whereIn('school_id', $adminSchoolIds)
             ->delete();
         
-        // If teacher has no schools left, delete the user
-        $remainingSchools = DB::table('school_teacher')
-            ->where('user_id', $user->id)
-            ->count();
-            
-        if ($remainingSchools === 0) {
-            $user->delete();
-        }
+        // Note: We do NOT delete the user account - they should remain in the system
+        // even if they're not part of any schools currently
     }
     
     /**
