@@ -29,7 +29,7 @@
                 <div class="card-body">
                     <div class="row">
                         <!-- Classroom Information -->
-                        <div class="col-lg-4 mb-4">
+                        <!-- <div class="col-lg-4 mb-4">
                             <div class="card shadow-sm h-100">
                                 <div class="card-header bg-primary text-white">
                                     <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>معلومات الفصل</h5>
@@ -68,10 +68,10 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> -->
 
                         <!-- Students Panel -->
-                        <div class="col-lg-8 mb-4">
+                        <div class="col-lg-12 mb-4">
                             <div class="card shadow-sm h-100">
                                 <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
                                     <h5 class="mb-0"><i class="fas fa-user-graduate me-2"></i>الطلاب المسجلين</h5>
@@ -120,6 +120,18 @@
                                                         <div class="d-flex">
                                                             <div class="d-flex gap-1">
                                                                 
+                                                                <button type="button" class="btn btn-sm btn-primary" 
+                                                                        data-student-id="{{ $student->id }}"
+                                                                        data-first-name="{{ $student->first_name }}"
+                                                                        data-middle-name="{{ $student->middle_name }}"
+                                                                        data-last-name="{{ $student->last_name }}"
+                                                                        data-birth-year="{{ $student->birth_year }}"
+                                                                        data-phone="{{ $student->phone }}"
+                                                                        data-address="{{ $student->address }}"
+                                                                        onclick="openEditStudentModalFromButton(this)"
+                                                                        title="تعديل بيانات الطالب">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
                                                                 <button type="button" class="btn btn-sm btn-warning send-note-btn" 
                                                                         data-student-id="{{ $student->id }}"
                                                                         data-student-name="{{ $student->name }}"
@@ -385,6 +397,65 @@
     </div>
 </div>
 
+<!-- Edit Student Modal - Using custom styling -->
+<div id="editStudentModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: relative; width: 80%; max-width: 800px; margin: 50px auto; background-color: white; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+        <div style="background-color: #007bff; color: white; padding: 15px; border-radius: 5px 5px 0 0;">
+            <h5 style="margin: 0;"><i class="fas fa-user-edit"></i> تعديل بيانات الطالب</h5>
+            <button onclick="document.getElementById('editStudentModalOverlay').style.display='none';" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            @if($errors->any() && request()->input('form_type') == 'edit_student')
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            
+            <form id="editStudentForm" action="" method="POST">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="form_type" value="edit_student">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="edit_first_name" class="form-label">الاسم الأول<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="edit_middle_name" class="form-label">الاسم الأوسط</label>
+                        <input type="text" class="form-control" id="edit_middle_name" name="middle_name">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="edit_last_name" class="form-label">الاسم الأخير<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="edit_birth_year" class="form-label">سنة الميلاد<span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="edit_birth_year" name="birth_year" min="{{ date('Y') - 100 }}" max="{{ date('Y') }}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="edit_phone" class="form-label">رقم الهاتف</label>
+                        <input type="text" class="form-control" id="edit_phone" name="phone">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="edit_address" class="form-label">العنوان</label>
+                    <textarea class="form-control" id="edit_address" name="address" rows="2"></textarea>
+                </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('editStudentModalOverlay').style.display='none';">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">تحديث بيانات الطالب</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Send Note Modal -->
 <div class="modal fade" id="sendNoteModal" tabindex="-1" aria-labelledby="sendNoteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -516,6 +587,51 @@
         broadcastModal.show();
     }
 
+    // Function to open edit student modal from button data attributes
+    function openEditStudentModalFromButton(button) {
+        try {
+            const studentId = button.getAttribute('data-student-id');
+            const firstName = button.getAttribute('data-first-name');
+            const middleName = button.getAttribute('data-middle-name');
+            const lastName = button.getAttribute('data-last-name');
+            const birthYear = button.getAttribute('data-birth-year');
+            const phone = button.getAttribute('data-phone');
+            const address = button.getAttribute('data-address');
+            
+            openEditStudentModal(studentId, firstName, middleName, lastName, birthYear, phone, address);
+        } catch (error) {
+            console.error("Error reading student data from button:", error);
+            alert("حدث خطأ أثناء قراءة بيانات الطالب. يرجى المحاولة مرة أخرى.");
+        }
+    }
+
+    // Function to open edit student modal
+    function openEditStudentModal(studentId, firstName, middleName, lastName, birthYear, phone, address) {
+        try {
+            console.log("Opening edit student modal for student:", studentId);
+            
+            // Set the form action to the update route
+            const form = document.getElementById('editStudentForm');
+            form.action = '{{ route("classroom.students.update", [$classroom->id, "STUDENT_ID"]) }}'.replace('STUDENT_ID', studentId);
+            
+            // Populate the form fields with existing data
+            document.getElementById('edit_first_name').value = firstName || '';
+            document.getElementById('edit_middle_name').value = middleName || '';
+            document.getElementById('edit_last_name').value = lastName || '';
+            document.getElementById('edit_birth_year').value = birthYear || '';
+            document.getElementById('edit_phone').value = phone || '';
+            document.getElementById('edit_address').value = address || '';
+            
+            // Show the modal
+            document.getElementById('editStudentModalOverlay').style.display = 'block';
+            
+            console.log("Edit modal opened successfully");
+        } catch (error) {
+            console.error("Error opening edit student modal:", error);
+            alert("حدث خطأ أثناء محاولة فتح نافذة تعديل الطالب. يرجى المحاولة مرة أخرى.");
+        }
+    }
+
     // Function to open send note modal
     function openSendNoteModal(studentId, studentName) {
         try {
@@ -570,6 +686,8 @@
                 document.getElementById('newStudentModalOverlay').style.display = 'block';
             @elseif(request()->input('form_type') == 'existing_student')
                 document.getElementById('existingStudentModalOverlay').style.display = 'block';
+            @elseif(request()->input('form_type') == 'edit_student')
+                document.getElementById('editStudentModalOverlay').style.display = 'block';
             @endif
         @endif
     });

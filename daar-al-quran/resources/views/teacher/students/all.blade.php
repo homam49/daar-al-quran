@@ -324,7 +324,7 @@ function toggleAllStudents() {
     studentCheckboxes.forEach(function(checkbox) {
         const row = checkbox.closest('tr');
         if (row && row.style.display !== 'none') {
-            checkbox.checked = selectAllCheckbox.checked;
+        checkbox.checked = selectAllCheckbox.checked;
         }
     });
     
