@@ -13,7 +13,7 @@
 </div>
 
 <div class="row dashboard-stats">
-    <div class="col-md-6 col-lg-3 mb-4">
+    <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-white text-dark h-100">
             <div class="card-body text-center">
                 <div class="display-4 text-primary mb-2">
@@ -30,7 +30,7 @@
         </div>
     </div>
     
-    <div class="col-md-6 col-lg-3 mb-4">
+    <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-white text-dark h-100">
             <div class="card-body text-center">
                 <div class="display-4 text-success mb-2">
@@ -47,24 +47,7 @@
         </div>
     </div>
     
-    <div class="col-md-6 col-lg-3 mb-4">
-        <div class="card bg-white text-dark h-100">
-            <div class="card-body text-center">
-                <div class="display-4 text-warning mb-2">
-                    <i class="fas fa-calendar-check"></i>
-                </div>
-                <h3 class="font-weight-bold">{{ $sessions_count }}</h3>
-                <p class="mb-0">عدد الجلسات</p>
-            </div>
-            <div class="card-footer bg-warning text-dark text-center py-2">
-                <a href="{{ route('sessions.index') }}" class="text-dark text-decoration-none">
-                    <small>عرض التفاصيل <i class="fas fa-arrow-left ms-1"></i></small>
-                </a>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6 col-lg-3 mb-4">
+    <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-white text-dark h-100">
             <div class="card-body text-center">
                 <div class="display-4 text-info mb-2">

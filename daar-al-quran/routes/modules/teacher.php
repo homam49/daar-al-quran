@@ -47,14 +47,13 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     Route::post('/students/credentials/pdf', [TeacherController::class, 'generateSelectedCredentialsPdf'])->name('teacher.students.credentials.pdf');
     
     // Session routes
-    Route::get('/sessions', [ClassSessionController::class, 'allSessions'])->name('sessions.index');
+    Route::get('/sessions', [ClassSessionController::class, 'all'])->name('sessions.index');
     
     // Classroom routes
     Route::resource('classrooms', ClassRoomController::class);
     Route::post('/classrooms/broadcast-message', [ClassRoomController::class, 'broadcastMessage'])->name('classrooms.broadcast-message');
     
     // Session management
-    Route::get('/classrooms/{classroom}/sessions', [ClassSessionController::class, 'index'])->name('classroom.sessions.index');
     Route::get('/classrooms/{classroom}/sessions/create', [ClassSessionController::class, 'create'])->name('classroom.sessions.create');
     Route::post('/classrooms/{classroom}/sessions', [ClassSessionController::class, 'store'])->name('classroom.sessions.store');
     Route::get('/classrooms/{classroom}/sessions/{session}', [ClassSessionController::class, 'show'])->name('classroom.sessions.show');
@@ -77,5 +76,5 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     // Memorization tracking routes
     Route::get('/students/{student}/memorization', [MemorizationController::class, 'show'])->name('teacher.memorization.show');
     Route::post('/students/{student}/memorization', [MemorizationController::class, 'update'])->name('teacher.memorization.update');
-    Route::get('/students/{student}/memorization/{type}/{number}', [MemorizationController::class, 'getProgress'])->name('teacher.memorization.progress');
+    Route::get('/students/{student}/memorization/{type}/{number}', [MemorizationController::class, 'getProgressInfo'])->name('teacher.memorization.progress');
 }); 

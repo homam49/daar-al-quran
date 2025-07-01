@@ -9,17 +9,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Message;
 use Illuminate\Support\Facades\DB;
+use App\Services\TeacherService;
 
 class ClassRoomController extends Controller
 {
+    protected $teacherService;
+
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(TeacherService $teacherService)
     {
         $this->middleware(['auth', 'role:teacher', 'approved']);
+        $this->teacherService = $teacherService;
     }
 
     /**
@@ -29,9 +33,7 @@ class ClassRoomController extends Controller
      */
     public function index()
     {
-        $classRooms = ClassRoom::with(['school', 'schedules'])
-            ->where('user_id', Auth::id())
-            ->get();
+        $classRooms = $this->teacherService->getAccessibleClassrooms();
         
         return view('teacher.classrooms.index', compact('classRooms'));
     }
@@ -43,24 +45,7 @@ class ClassRoomController extends Controller
      */
     public function create()
     {
-        // Get only the schools that this teacher has joined and been approved for
-        $user = Auth::user();
-        $classRooms = ClassRoom::where('user_id', $user->id)->get();
-        $schoolIdsFromClasses = $classRooms->pluck('school_id')->unique();
-        
-        // Get approved school relationships
-        $approvedSchoolIds = DB::table('school_teacher')
-            ->where('user_id', $user->id)
-            ->where('is_approved', true)
-            ->pluck('school_id')
-            ->toArray();
-        
-        // Combine both sources of school IDs
-        $schoolIds = $schoolIdsFromClasses->merge($approvedSchoolIds)->unique();
-        
-        // Only get schools that the teacher is associated with
-        $schools = School::whereIn('id', $schoolIds)->get();
-        
+        $schools = $this->teacherService->getTeacherSchools()['schools'];
         $days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
         
         return view('teacher.classrooms.create', compact('schools', 'days'));
@@ -83,19 +68,8 @@ class ClassRoomController extends Controller
             'end_time' => 'required|after:start_time',
         ]);
 
-        // Check if teacher is approved for this school
-        $isApproved = DB::table('school_teacher')
-            ->where('user_id', Auth::id())
-            ->where('school_id', $request->school_id)
-            ->where('is_approved', true)
-            ->exists();
-            
-        // Teacher can also create classrooms if they already have a classroom in this school
-        $hasExistingClassroom = ClassRoom::where('user_id', Auth::id())
-            ->where('school_id', $request->school_id)
-            ->exists();
-            
-        if (!$isApproved && !$hasExistingClassroom) {
+        // Check if teacher has access to this school
+        if (!$this->teacherService->hasAccessToSchool($request->school_id)) {
             return redirect()->route('teacher.dashboard')
                 ->with('error', 'لم تتم الموافقة على انضمامك لهذه المدرسة بعد من قبل المدير');
         }
@@ -129,10 +103,7 @@ class ClassRoomController extends Controller
      */
     public function show(ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        $this->authorize('view', $classroom);
 
         $classroom->load(['school', 'schedules', 'students', 'sessions']);
         
@@ -154,10 +125,7 @@ class ClassRoomController extends Controller
      */
     public function edit(ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بتعديل هذا الفصل');
-        }
+        $this->authorize('update', $classroom);
 
         $days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
         $selectedDays = $classroom->schedules->pluck('day')->toArray();
@@ -178,10 +146,7 @@ class ClassRoomController extends Controller
      */
     public function update(Request $request, ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بتعديل هذا الفصل');
-        }
+        $this->authorize('update', $classroom);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -196,10 +161,9 @@ class ClassRoomController extends Controller
             'description' => $request->description,
         ]);
 
-        // Delete existing schedules
+        // Delete existing schedules and create new ones
         $classroom->schedules()->delete();
-
-        // Create new schedules for each selected day
+        
         foreach ($request->days as $day) {
             ClassSchedule::create([
                 'day' => $day,
@@ -209,7 +173,7 @@ class ClassRoomController extends Controller
             ]);
         }
 
-        return redirect()->route('classrooms.index')
+        return redirect()->route('classrooms.show', $classroom)
             ->with('success', 'تم تحديث الفصل بنجاح');
     }
 
@@ -221,16 +185,60 @@ class ClassRoomController extends Controller
      */
     public function destroy(ClassRoom $classroom)
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بحذف هذا الفصل');
-        }
+        $this->authorize('delete', $classroom);
 
-        // Delete the classroom (related records will be deleted via foreign keys)
         $classroom->delete();
 
         return redirect()->route('classrooms.index')
             ->with('success', 'تم حذف الفصل بنجاح');
+    }
+
+    /**
+     * Add a student to the classroom.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\ClassRoom  $classroom
+     * @return \Illuminate\Http\Response
+     */
+    public function addStudent(Request $request, ClassRoom $classroom)
+    {
+        $this->authorize('update', $classroom);
+
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+        ]);
+
+        $student = \App\Models\Student::findOrFail($request->student_id);
+        
+        // Check if student is in the same school
+        if ($student->school_id != $classroom->school_id) {
+            return back()->with('error', 'الطالب ليس من نفس المدرسة');
+        }
+        
+        // Check if student is already in the classroom
+        if ($classroom->students()->where('student_id', $student->id)->exists()) {
+            return back()->with('error', 'الطالب موجود بالفعل في هذا الفصل');
+        }
+
+        $classroom->students()->attach($student->id);
+
+        return back()->with('success', 'تم إضافة الطالب للفصل بنجاح');
+    }
+
+    /**
+     * Remove a student from the classroom.
+     *
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\Student  $student
+     * @return \Illuminate\Http\Response
+     */
+    public function removeStudent(ClassRoom $classroom, \App\Models\Student $student)
+    {
+        $this->authorize('update', $classroom);
+
+        $classroom->students()->detach($student->id);
+
+        return back()->with('success', 'تم إزالة الطالب من الفصل بنجاح');
     }
 
     /**
@@ -250,10 +258,8 @@ class ClassRoomController extends Controller
         // Find the classroom
         $classroom = ClassRoom::findOrFail($request->classroom_id);
         
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != auth()->id()) {
-            return response()->json(['error' => 'غير مصرح لك بالوصول إلى هذا الفصل'], 403);
-        }
+        // Check if the authenticated user has access to this classroom
+        $this->authorize('update', $classroom);
         
         // Get all students in the classroom
         $students = $classroom->students;
@@ -268,7 +274,9 @@ class ClassRoomController extends Controller
                 'subject' => $request->subject,
                 'content' => $request->content,
                 'sender_id' => auth()->id(),
+                'sender_type' => 'teacher',
                 'student_id' => $student->id,
+                'recipient_id' => null, // Broadcast message, no specific recipient
                 'class_room_id' => $classroom->id,
                 'type' => 'class',
                 'is_read' => false,

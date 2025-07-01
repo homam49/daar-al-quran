@@ -292,11 +292,11 @@ class StudentController extends Controller
      */
     public function allStudents()
     {
-        $classrooms = ClassRoom::where('user_id', Auth::id())
-            ->with(['students.school', 'school'])
-            ->get();
+        // Use TeacherService to get all accessible classrooms (not just owned ones)
+        $teacherService = new \App\Services\TeacherService();
+        $classrooms = $teacherService->getAccessibleClassrooms();
         
-        // Get all students from teacher's classrooms
+        // Get all students from teacher's accessible classrooms
         $students = collect();
         foreach ($classrooms as $classroom) {
             $students = $students->merge($classroom->students);

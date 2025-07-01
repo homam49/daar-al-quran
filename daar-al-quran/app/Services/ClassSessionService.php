@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Auth;
 
 class ClassSessionService
 {
+    protected $teacherService;
+
+    public function __construct(TeacherService $teacherService)
+    {
+        $this->teacherService = $teacherService;
+    }
+
     /**
      * Get session creation data for classroom
      *
@@ -70,18 +77,13 @@ class ClassSessionService
     /**
      * Create a new session with attendance
      *
-     * @param int $classroomId
+     * @param ClassRoom $classroom
      * @param array $data
      * @return ClassSession
      */
-    public function createSession(int $classroomId, array $data): ClassSession
+    public function createSession(ClassRoom $classroom, array $data): ClassSession
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Verify ownership
-        if ($classroom->user_id != Auth::id()) {
-            throw new \Exception('غير مصرح لك بالوصول إلى هذا الفصل');
-        }
+        // Authorization is handled by the controller using policies
         
         // Ensure end time is after start time
         $times = $this->validateAndFixTimes($data['start_time'], $data['end_time']);
@@ -95,8 +97,10 @@ class ClassSessionService
             'class_room_id' => $classroom->id,
         ]);
         
-        // Record attendance
-        $this->recordAttendance($session, $data['attendance'], $data['notes'] ?? []);
+        // Record attendance if provided
+        if (!empty($data['attendance'])) {
+            $this->recordAttendance($session, $data['attendance'], $data['notes'] ?? []);
+        }
         
         // Send class message if requested
         if (!empty($data['send_message']) && !empty($data['message_title']) && !empty($data['message_content'])) {
@@ -160,6 +164,46 @@ class ClassSessionService
     }
     
     /**
+     * Update attendance for a session
+     *
+     * @param ClassSession $session
+     * @param array $data
+     * @return void
+     */
+    public function updateAttendance(ClassSession $session, array $data): void
+    {
+        // Authorization is handled by the controller using policies
+        
+        $attendanceData = $data['attendance'] ?? [];
+        $notes = $data['notes'] ?? [];
+        
+        foreach ($attendanceData as $studentId => $attendanceInfo) {
+            // Handle nested structure from edit form: attendance[student_id][status] and attendance[student_id][note]
+            if (is_array($attendanceInfo)) {
+                $status = $attendanceInfo['status'] ?? null;
+                $note = $attendanceInfo['note'] ?? null;
+            } else {
+                // Handle flat structure from session creation: attendance[student_id] = status
+                $status = $attendanceInfo;
+                $note = $notes[$studentId] ?? null;
+            }
+            
+            if ($status) {
+                Attendance::updateOrCreate(
+                    [
+                        'class_session_id' => $session->id,
+                        'student_id' => $studentId,
+                    ],
+                    [
+                        'status' => $status,
+                        'note' => $note,
+                    ]
+                );
+            }
+        }
+    }
+    
+    /**
      * Send message to entire class
      *
      * @param ClassRoom $classroom
@@ -169,13 +213,18 @@ class ClassSessionService
      */
     private function sendClassMessage(ClassRoom $classroom, string $title, string $content): void
     {
-        Message::create([
-            'title' => $title,
-            'content' => $content,
-            'sender_id' => Auth::id(),
-            'class_room_id' => $classroom->id,
-            'type' => 'class',
-        ]);
+        foreach ($classroom->students as $student) {
+            Message::create([
+                'subject' => $title,
+                'content' => $content,
+                'sender_id' => Auth::id(),
+                'sender_type' => 'teacher',
+                'student_id' => $student->id,
+                'class_room_id' => $classroom->id,
+                'type' => 'class',
+                'is_read' => false,
+            ]);
+        }
     }
     
     /**
@@ -213,40 +262,9 @@ class ClassSessionService
         ]);
         
         // Update attendance
-        $this->updateAttendance($session, $data['attendance'], $data['notes'] ?? []);
+        $this->updateAttendance($session, $data);
         
         return $session;
-    }
-    
-    /**
-     * Update attendance records for session
-     *
-     * @param ClassSession $session
-     * @param array $attendanceData
-     * @param array $notes
-     * @return void
-     */
-    private function updateAttendance(ClassSession $session, array $attendanceData, array $notes = []): void
-    {
-        foreach ($attendanceData as $studentId => $status) {
-            $attendance = Attendance::where('class_session_id', $session->id)
-                ->where('student_id', $studentId)
-                ->first();
-                
-            if ($attendance) {
-                $attendance->update([
-                    'status' => $status,
-                    'note' => $notes[$studentId] ?? null,
-                ]);
-            } else {
-                Attendance::create([
-                    'status' => $status,
-                    'note' => $notes[$studentId] ?? null,
-                    'student_id' => $studentId,
-                    'class_session_id' => $session->id,
-                ]);
-            }
-        }
     }
     
     /**
@@ -279,13 +297,13 @@ class ClassSessionService
     }
     
     /**
-     * Get all sessions for teacher
+     * Get all sessions for teacher's accessible classrooms
      *
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public function getAllTeacherSessions()
     {
-        $classrooms = ClassRoom::where('user_id', Auth::id())->get();
+        $classrooms = $this->teacherService->getAccessibleClassrooms();
         
         return ClassSession::whereIn('class_room_id', $classrooms->pluck('id'))
             ->with(['classRoom.school', 'attendances'])

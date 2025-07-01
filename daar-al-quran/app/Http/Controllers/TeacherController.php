@@ -76,8 +76,7 @@ class TeacherController extends Controller
      */
     public function schools()
     {
-        $data = $this->teacherService->getSchoolsData();
-        
+        $data = $this->teacherService->getSchools();
         return view('teacher.schools', $data);
     }
 
@@ -108,94 +107,54 @@ class TeacherController extends Controller
     }
 
     /**
-     * Display reports for the teacher.
+     * Get reports data for the teacher.
      *
-     * @return \Illuminate\View\View
+     * @return \Illuminate\Http\Response
      */
     public function reports()
     {
-        $classRooms = ClassRoom::where('user_id', Auth::id())->get();
-        return view('teacher.reports', compact('classRooms'));
+        $classrooms = $this->teacherService->getAccessibleClassrooms();
+        return view('teacher.reports', compact('classrooms'));
     }
 
     /**
-     * Display attendance report.
+     * Generate attendance report.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\View\View
+     * @return \Illuminate\Http\Response
      */
     public function attendanceReport(Request $request)
     {
-        $request->validate([
-            'classroom_id' => 'required|exists:class_rooms,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-        ]);
-
-        $classroom = ClassRoom::findOrFail($request->classroom_id);
-        $this->authorize('view', $classroom);
-
-        $sessions = ClassSession::where('class_room_id', $classroom->id)
-            ->whereBetween('session_date', [$request->start_date, $request->end_date])
-            ->orderBy('session_date')
-            ->get();
-
-        return view('teacher.reports.attendance', compact('classroom', 'sessions'));
+        $filters = $request->only(['classroom_id', 'date_from', 'date_to']);
+        $data = $this->teacherService->getAttendanceReportData($filters);
+        
+        return view('teacher.reports.attendance', $data);
     }
 
     /**
-     * Display performance report.
+     * Generate performance report.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\View\View
+     * @return \Illuminate\Http\Response
      */
     public function performanceReport(Request $request)
     {
-        $request->validate([
-            'classroom_id' => 'required|exists:class_rooms,id',
-            'period' => 'required|in:month,semester,year',
-        ]);
-
-        $classroom = ClassRoom::findOrFail($request->classroom_id);
-        $this->authorize('view', $classroom);
-
-        // Logic for getting performance data based on period
-        $startDate = now();
-        $endDate = now();
-
-        if ($request->period === 'month') {
-            $startDate = now()->startOfMonth();
-        } elseif ($request->period === 'semester') {
-            $startDate = now()->subMonths(4);
-        } elseif ($request->period === 'year') {
-            $startDate = now()->subYear();
-        }
-
-        $sessions = ClassSession::where('class_room_id', $classroom->id)
-            ->whereBetween('session_date', [$startDate, $endDate])
-            ->orderBy('session_date')
-            ->get();
-
-        // If a specific student is selected
-        $student = null;
-        if ($request->filled('student_id')) {
-            $student = Student::findOrFail($request->student_id);
-        }
-
-        return view('teacher.reports.performance', compact('classroom', 'sessions', 'student'));
+        $filters = $request->only(['classroom_id', 'date_from', 'date_to']);
+        $data = $this->teacherService->getPerformanceReportData($filters);
+        
+        return view('teacher.reports.performance', $data);
     }
 
     /**
-     * Export a report.
+     * Export report in specified format.
      *
      * @param  string  $type
-     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     * @return \Illuminate\Http\Response
      */
     public function exportReport($type)
     {
-        // This would typically use a package like maatwebsite/excel for exports
-        // For now, we'll just return a response indicating it's not implemented
-        return back()->with('info', 'سيتم تفعيل تصدير التقارير قريبًا');
+        // Implementation for report export
+        return response()->json(['message' => 'Report export functionality to be implemented']);
     }
 
     /**

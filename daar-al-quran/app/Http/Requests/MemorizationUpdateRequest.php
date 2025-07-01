@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 
 class MemorizationUpdateRequest extends FormRequest
 {
@@ -20,12 +21,33 @@ class MemorizationUpdateRequest extends FormRequest
 
         $student = $this->route('student');
         if (!$student) {
-        return false;
+            return false;
         }
 
-        // Check if teacher has access to this student through classrooms
-        $teacherClassrooms = \App\Models\ClassRoom::where('user_id', $this->user()->id)->pluck('id');
-        return $student->classRooms()->whereIn('class_room_id', $teacherClassrooms)->exists();
+        // Check if teacher has access to this student through any classroom in schools they belong to
+        $teacherId = $this->user()->id;
+        
+        // Get schools where teacher is approved
+        $approvedSchoolIds = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('is_approved', true)
+            ->pluck('school_id')
+            ->toArray();
+        
+        // Get schools where teacher has created classrooms (legacy support)
+        $classroomSchoolIds = \App\Models\ClassRoom::where('user_id', $teacherId)
+            ->pluck('school_id')
+            ->toArray();
+        
+        // Combine and get unique school IDs
+        $allSchoolIds = array_unique(array_merge($approvedSchoolIds, $classroomSchoolIds));
+        
+        // Get all classrooms in these schools
+        $accessibleClassroomIds = \App\Models\ClassRoom::whereIn('school_id', $allSchoolIds)
+            ->pluck('id')
+            ->toArray();
+        
+        return $student->classRooms()->whereIn('class_room_id', $accessibleClassroomIds)->exists();
     }
 
     /**

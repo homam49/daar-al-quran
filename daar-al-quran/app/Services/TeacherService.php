@@ -14,180 +14,135 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Collection;
+use App\Models\Message;
 
 class TeacherService
 {
     /**
-     * Get dashboard statistics for teacher
+     * Get dashboard statistics for teacher.
      *
      * @return array
      */
     public function getDashboardStats(): array
     {
-        $classRooms = ClassRoom::where('user_id', Auth::id())->get();
-        $schoolIds = $classRooms->pluck('school_id')->unique();
+        // Get all classrooms accessible by the teacher
+        $classRooms = $this->getAccessibleClassrooms();
         
-        // Get approved schools count
-        $approvedSchools = DB::table('school_teacher')
-            ->where('user_id', Auth::id())
+        // Get total students across all accessible classrooms
+        $totalStudents = Student::whereHas('classRooms', function ($query) use ($classRooms) {
+            $query->whereIn('class_room_id', $classRooms->pluck('id'));
+        })->distinct()->count();
+        
+        // Get recent sessions from accessible classrooms
+        $recentSessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))
+            ->with(['classRoom.school', 'classRoom.students', 'attendances'])
+            ->orderBy('session_date', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Add attendance count to each session
+        foreach ($recentSessions as $session) {
+            $session->attendance_count = $session->attendances()->count();
+        }
+        
+        // Get total sessions count
+        $totalSessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))->count();
+        
+        // Get pending messages for accessible classrooms
+        $pendingMessages = Message::whereIn('class_room_id', $classRooms->pluck('id'))
+            ->whereNull('read_at')
+            ->count();
+        
+        // Today's sessions from accessible classrooms
+        $todaySessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))
+            ->whereDate('session_date', today())
+            ->with(['classRoom'])
+            ->get();
+
+        // Get schools count
+        $teacherSchools = $this->getTeacherSchools();
+        $schoolsCount = $teacherSchools['schools']->count();
+
+        // Get pending schools
+        $pendingSchools = $this->getPendingSchools();
+
+        return [
+            'classRooms' => $classRooms,
+            'classrooms_count' => $classRooms->count(),
+            'students_count' => $totalStudents,
+            'sessions_count' => $totalSessions,
+            'schools_count' => $schoolsCount,
+            'totalStudents' => $totalStudents,
+            'recentSessions' => $recentSessions,
+            'recent_sessions' => $recentSessions,
+            'pendingMessages' => $pendingMessages,
+            'today_sessions' => $todaySessions,
+            'pendingSchools' => $pendingSchools,
+            'unread_messages' => $pendingMessages, // Alias for backward compatibility
+        ];
+    }
+    
+    /**
+     * Get all classrooms accessible by the current teacher.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAccessibleClassrooms()
+    {
+        $teacherId = Auth::id();
+        
+        // Get schools where teacher is approved
+        $approvedSchoolIds = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
             ->where('is_approved', true)
             ->pluck('school_id')
             ->toArray();
         
-        $schools_count = count(array_unique(array_merge($schoolIds->toArray(), $approvedSchools)));
+        // Get schools where teacher has created classrooms (legacy support)
+        $classroomSchoolIds = ClassRoom::where('user_id', $teacherId)
+            ->pluck('school_id')
+            ->toArray();
         
-        // Get pending schools
-        $pendingSchools = $this->getPendingSchools();
+        // Combine and get unique school IDs
+        $allSchoolIds = array_unique(array_merge($approvedSchoolIds, $classroomSchoolIds));
         
-        // Get statistics
-        $stats = [
-            'schools_count' => $schools_count,
-            'classrooms_count' => $classRooms->count(),
-            'students_count' => $this->getUniqueStudentsCount($classRooms),
-            'sessions_count' => $this->getSessionsCount($classRooms),
-            'memorization_stats' => $this->getMemorizationStats($classRooms),
-            'today_sessions' => $this->getTodaySessions($classRooms),
-            'recent_sessions' => $this->getRecentSessions($classRooms),
-            'unread_messages' => $this->getUnreadMessagesCount(),
-            'classRooms' => $classRooms,
-            'pendingSchools' => $pendingSchools,
-        ];
-        
-        return $stats;
-    }
-    
-    /**
-     * Get pending schools for teacher
-     *
-     * @return \Illuminate\Support\Collection
-     */
-    private function getPendingSchools()
-    {
-        return DB::table('school_teacher')
-            ->join('schools', 'schools.id', '=', 'school_teacher.school_id')
-            ->where('school_teacher.user_id', Auth::id())
-            ->where('school_teacher.is_approved', false)
-            ->select('schools.id', 'schools.name')
+        // Return all classrooms in these schools
+        return ClassRoom::whereIn('school_id', $allSchoolIds)
+            ->with(['school', 'schedules'])
             ->get();
     }
     
     /**
-     * Get unique students count across classrooms
+     * Get teacher's schools that they can access.
      *
-     * @param \Illuminate\Database\Eloquent\Collection $classRooms
-     * @return int
-     */
-    private function getUniqueStudentsCount($classRooms): int
-    {
-        return Student::whereHas('classRooms', function($query) use ($classRooms) {
-            $query->whereIn('class_rooms.id', $classRooms->pluck('id'));
-        })->distinct('id')->count();
-    }
-    
-    /**
-     * Get sessions count for classrooms
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $classRooms
-     * @return int
-     */
-    private function getSessionsCount($classRooms): int
-    {
-        return ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))->count();
-    }
-    
-    /**
-     * Get memorization statistics
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $classRooms
      * @return array
      */
-    private function getMemorizationStats($classRooms): array
+    public function getTeacherSchools(): array
     {
-        $teacherStudentIds = Student::whereHas('classRooms', function($query) use ($classRooms) {
-            $query->whereIn('class_rooms.id', $classRooms->pluck('id'));
-        })->pluck('id');
+        $teacherId = Auth::id();
         
-        $memorization_records = MemorizationProgress::whereIn('student_id', $teacherStudentIds)->get();
+        // Get schools where teacher is approved
+        $approvedSchoolIds = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('is_approved', true)
+            ->pluck('school_id')
+            ->toArray();
         
-        return [
-            'total_memorized' => $memorization_records->where('status', 'memorized')->count(),
-            'in_progress' => $memorization_records->where('status', 'in_progress')->count(),
-            'total_students_tracking' => $memorization_records->unique('student_id')->count(),
-            'pages_memorized' => $memorization_records->where('type', 'page')->where('status', 'memorized')->count(),
-            'surahs_memorized' => $memorization_records->where('type', 'surah')->where('status', 'memorized')->count(),
-            'pages_in_progress' => $memorization_records->where('type', 'page')->where('status', 'in_progress')->count(),
-            'surahs_in_progress' => $memorization_records->where('type', 'surah')->where('status', 'in_progress')->count(),
-            'total_content_items' => $memorization_records->count(),
-        ];
+        // Get schools where teacher has created classrooms (legacy support)  
+        $classroomSchoolIds = ClassRoom::where('user_id', $teacherId)
+            ->pluck('school_id')
+            ->toArray();
+        
+        // Combine and get unique school IDs
+        $allSchoolIds = array_unique(array_merge($approvedSchoolIds, $classroomSchoolIds));
+        
+        $schools = School::whereIn('id', $allSchoolIds)->get();
+        
+        return compact('schools');
     }
     
     /**
-     * Get today's sessions
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $classRooms
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    private function getTodaySessions($classRooms)
-    {
-        $today = now()->format('Y-m-d');
-        
-        $sessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))
-            ->whereDate('session_date', $today)
-            ->orderBy('start_time')
-            ->with(['classRoom.school'])
-            ->get();
-        
-        // Ensure classRoom relationship exists
-        foreach ($sessions as $session) {
-            if (!$session->classRoom) {
-                $session->classRoom = ClassRoom::find($session->class_room_id);
-            }
-        }
-        
-        return $sessions;
-    }
-    
-    /**
-     * Get recent sessions
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $classRooms
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    private function getRecentSessions($classRooms)
-    {
-        $sessions = ClassSession::whereIn('class_room_id', $classRooms->pluck('id'))
-            ->orderBy('session_date', 'desc')
-            ->orderBy('start_time', 'desc')
-            ->limit(4)
-            ->with(['classRoom.school'])
-            ->get();
-        
-        // Ensure classRoom relationship exists and add attendance count
-        foreach ($sessions as $session) {
-            if (!$session->classRoom) {
-                $session->classRoom = ClassRoom::find($session->class_room_id);
-            }
-            $session->attendance_count = $session->attendances()->count();
-        }
-        
-        return $sessions;
-    }
-    
-    /**
-     * Get unread messages count for teacher
-     *
-     * @return int
-     */
-    private function getUnreadMessagesCount(): int
-    {
-        return \App\Models\Message::where('recipient_id', Auth::id())
-            ->where('sender_type', 'student')
-            ->whereNull('read_at')
-            ->count();
-    }
-    
-    /**
-     * Join a school using school code
+     * Join a school using the provided code.
      *
      * @param string $schoolCode
      * @return array
@@ -197,34 +152,37 @@ class TeacherService
         $school = School::where('code', $schoolCode)->first();
         
         if (!$school) {
-            return ['success' => false, 'message' => 'رمز المدرسة غير صحيح'];
+            return [
+                'success' => false,
+                'message' => 'رمز المدرسة غير صحيح'
+            ];
         }
         
-        $user = Auth::user();
-        
-        // Check if teacher is already associated with this school
-        $alreadyJoined = DB::table('school_teacher')
+        // Check if already associated
+        $exists = DB::table('school_teacher')
+            ->where('user_id', Auth::id())
             ->where('school_id', $school->id)
-            ->where('user_id', $user->id)
             ->exists();
-        
-        if (!$alreadyJoined) {
-            DB::table('school_teacher')->insert([
-                'school_id' => $school->id,
-                'user_id' => $user->id,
-                'is_approved' => false,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+            
+        if ($exists) {
+            return [
+                'success' => false,
+                'message' => 'أنت مسجل بالفعل في هذه المدرسة'
+            ];
         }
         
-        // Store in session
-        session(['pending_school_id' => $school->id]);
-        session(['pending_school_name' => $school->name]);
+        // Add teacher to school (pending approval)
+        DB::table('school_teacher')->insert([
+            'user_id' => Auth::id(),
+            'school_id' => $school->id,
+            'is_approved' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         
         return [
-            'success' => true, 
-            'message' => 'تم تقديم طلب الانضمام إلى المدرسة بنجاح. يرجى انتظار موافقة مدير المدرسة.'
+            'success' => true,
+            'message' => 'تم إرسال طلب الانضمام بنجاح. في انتظار موافقة مدير المدرسة.'
         ];
     }
     
@@ -233,25 +191,9 @@ class TeacherService
      *
      * @return array
      */
-    public function getSchoolsData(): array
+    public function getSchools(): array
     {
-        // Get schools where teacher has classrooms
-        $classRooms = ClassRoom::where('user_id', Auth::id())->get();
-        $schoolIds = $classRooms->pluck('school_id')->unique();
-        
-        // Get schools where teacher is approved
-        $approvedSchoolIds = DB::table('school_teacher')
-            ->where('user_id', Auth::id())
-            ->where('is_approved', true)
-            ->pluck('school_id')
-            ->toArray();
-        
-        // Combine and get unique school IDs
-        $allSchoolIds = collect($schoolIds)->merge($approvedSchoolIds)->unique();
-        
-        $schools = School::whereIn('id', $allSchoolIds)->get();
-        
-        return compact('schools');
+        return $this->getTeacherSchools();
     }
     
     /**
@@ -288,26 +230,36 @@ class TeacherService
      */
     public function getAttendanceReportData(array $filters): array
     {
-        $classrooms = ClassRoom::where('user_id', Auth::id())->get();
-        $query = ClassSession::whereIn('class_room_id', $classrooms->pluck('id'))
-            ->with(['attendances.student', 'classRoom']);
+        $classrooms = $this->getAccessibleClassrooms();
         
-        // Apply filters
+        $query = Attendance::whereHas('session', function ($q) use ($classrooms) {
+            $q->whereIn('class_room_id', $classrooms->pluck('id'));
+        });
+        
         if (!empty($filters['classroom_id'])) {
-            $query->where('class_room_id', $filters['classroom_id']);
+            $query->whereHas('session', function ($q) use ($filters) {
+                $q->where('class_room_id', $filters['classroom_id']);
+            });
         }
         
-        if (!empty($filters['start_date'])) {
-            $query->whereDate('session_date', '>=', $filters['start_date']);
+        if (!empty($filters['date_from'])) {
+            $query->whereHas('session', function ($q) use ($filters) {
+                $q->where('session_date', '>=', $filters['date_from']);
+            });
         }
         
-        if (!empty($filters['end_date'])) {
-            $query->whereDate('session_date', '<=', $filters['end_date']);
+        if (!empty($filters['date_to'])) {
+            $query->whereHas('session', function ($q) use ($filters) {
+                $q->where('session_date', '<=', $filters['date_to']);
+            });
         }
         
-        $sessions = $query->orderBy('session_date', 'desc')->get();
+        $attendances = $query->with(['student', 'session.classRoom'])->get();
         
-        return compact('sessions', 'classrooms');
+        return [
+            'attendances' => $attendances,
+            'classrooms' => $classrooms
+        ];
     }
     
     /**
@@ -318,53 +270,96 @@ class TeacherService
      */
     public function getPerformanceReportData(array $filters): array
     {
-        $classrooms = ClassRoom::where('user_id', Auth::id())->get();
-        $classroomIds = $classrooms->pluck('id');
+        $classrooms = $this->getAccessibleClassrooms();
         
-        $studentsQuery = Student::whereHas('classRooms', function($query) use ($classroomIds) {
-            $query->whereIn('class_rooms.id', $classroomIds);
-        })->with(['attendances.classSession', 'classRooms']);
+        // Get students from accessible classrooms
+        $students = Student::whereHas('classRooms', function ($query) use ($classrooms) {
+            $query->whereIn('class_room_id', $classrooms->pluck('id'));
+        })->with(['classRooms' => function ($query) use ($classrooms) {
+            $query->whereIn('class_room_id', $classrooms->pluck('id'));
+        }])->get();
         
-        // Apply classroom filter
-        if (!empty($filters['classroom_id'])) {
-            $studentsQuery->whereHas('classRooms', function($query) use ($filters) {
-                $query->where('class_rooms.id', $filters['classroom_id']);
-            });
+        return [
+            'students' => $students,
+            'classrooms' => $classrooms
+        ];
+    }
+    
+    /**
+     * Check if teacher has access to a specific classroom.
+     *
+     * @param int $classroomId
+     * @return bool
+     */
+    public function hasAccessToClassroom(int $classroomId): bool
+    {
+        $classroom = ClassRoom::find($classroomId);
+        
+        if (!$classroom) {
+            return false;
         }
         
-        $students = $studentsQuery->get();
+        $teacherId = Auth::id();
         
-        // Calculate performance metrics for each student
-        foreach ($students as $student) {
-            $attendances = $student->attendances;
-            
-            // Apply date filters to attendances
-            if (!empty($filters['start_date'])) {
-                $attendances = $attendances->filter(function($attendance) use ($filters) {
-                    return $attendance->classSession->session_date >= $filters['start_date'];
-                });
-            }
-            
-            if (!empty($filters['end_date'])) {
-                $attendances = $attendances->filter(function($attendance) use ($filters) {
-                    return $attendance->classSession->session_date <= $filters['end_date'];
-                });
-            }
-            
-            $totalSessions = $attendances->count();
-            $presentCount = $attendances->where('status', 'present')->count();
-            $lateCount = $attendances->where('status', 'late')->count();
-            
-            $student->attendance_rate = $totalSessions > 0 
-                ? round((($presentCount + $lateCount) / $totalSessions) * 100, 1) 
-                : 0;
-            $student->total_sessions = $totalSessions;
-            $student->present_count = $presentCount;
-            $student->late_count = $lateCount;
-            $student->absent_count = $attendances->where('status', 'absent')->count();
+        // Check if teacher is approved for this school
+        $isApprovedForSchool = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->where('is_approved', true)
+            ->exists();
+
+        if ($isApprovedForSchool) {
+            return true;
+        }
+
+        // Also check if teacher has any classroom in this school (legacy support)
+        return ClassRoom::where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->exists();
+    }
+    
+    /**
+     * Get accessible classrooms for a specific school.
+     *
+     * @param int $schoolId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAccessibleClassroomsForSchool(int $schoolId)
+    {
+        if (!$this->hasAccessToSchool($schoolId)) {
+            return collect();
         }
         
-        return compact('students', 'classrooms');
+        return ClassRoom::where('school_id', $schoolId)
+            ->with(['school', 'schedules'])
+            ->get();
+    }
+    
+    /**
+     * Check if teacher has access to a specific school.
+     *
+     * @param int $schoolId
+     * @return bool
+     */
+    public function hasAccessToSchool(int $schoolId): bool
+    {
+        $teacherId = Auth::id();
+        
+        // Check if teacher is approved for this school
+        $isApprovedForSchool = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('school_id', $schoolId)
+            ->where('is_approved', true)
+            ->exists();
+
+        if ($isApprovedForSchool) {
+            return true;
+        }
+
+        // Also check if teacher has any classroom in this school (legacy support)
+        return ClassRoom::where('user_id', $teacherId)
+            ->where('school_id', $schoolId)
+            ->exists();
     }
     
     /**
@@ -395,10 +390,18 @@ class TeacherService
             
             $title = 'بيانات تسجيل الدخول - فصل ' . $classroom->name;
         } else {
-            // Generate for selected students across all teacher's classrooms
+            // Generate for selected students across all teacher's accessible classrooms
+            $accessibleClassrooms = $this->getAccessibleClassrooms();
+            $accessibleClassroomIds = $accessibleClassrooms->pluck('id')->toArray();
+            $accessibleSchoolIds = $accessibleClassrooms->pluck('school_id')->unique()->toArray();
+            
             $students = Student::whereIn('id', $studentIds)
-                ->whereHas('classRooms', function ($query) use ($teacherId) {
-                    $query->where('class_rooms.user_id', $teacherId);
+                ->where(function ($query) use ($accessibleClassroomIds, $accessibleSchoolIds) {
+                    // Student must be either in an accessible classroom OR in an accessible school
+                    $query->whereHas('classRooms', function ($subQuery) use ($accessibleClassroomIds) {
+                        $subQuery->whereIn('class_room_id', $accessibleClassroomIds);
+                    })
+                    ->orWhereIn('school_id', $accessibleSchoolIds);
                 })
                 ->get();
                 
@@ -413,5 +416,20 @@ class TeacherService
         $pdfService = new PdfCredentialService();
         
         return $pdfService->generateCredentialsPdf($students, $youtubeUrl, $title);
+    }
+
+    /**
+     * Get pending schools for teacher.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    private function getPendingSchools()
+    {
+        return DB::table('school_teacher')
+            ->join('schools', 'schools.id', '=', 'school_teacher.school_id')
+            ->where('school_teacher.user_id', Auth::id())
+            ->where('school_teacher.is_approved', false)
+            ->select('schools.id', 'schools.name')
+            ->get();
     }
 } 

@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\ClassRoom;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Support\Facades\DB;
 
 class ClassRoomPolicy
 {
@@ -30,9 +31,9 @@ class ClassRoomPolicy
      */
     public function view(User $user, ClassRoom $classRoom)
     {
-        // Teachers can only view their own classrooms
+        // Teachers can view classrooms in schools they belong to
         if ($user->hasRole('teacher')) {
-            return $user->id === $classRoom->user_id;
+            return $this->teacherBelongsToClassroomSchool($user, $classRoom);
         }
         
         // Admins can view any classroom
@@ -59,9 +60,9 @@ class ClassRoomPolicy
      */
     public function update(User $user, ClassRoom $classRoom)
     {
-        // Teachers can only update their own classrooms
+        // Teachers can update classrooms in schools they belong to
         if ($user->hasRole('teacher')) {
-            return $user->id === $classRoom->user_id;
+            return $this->teacherBelongsToClassroomSchool($user, $classRoom);
         }
         
         // Admins can update any classroom
@@ -77,9 +78,9 @@ class ClassRoomPolicy
      */
     public function delete(User $user, ClassRoom $classRoom)
     {
-        // Teachers can only delete their own classrooms
+        // Teachers can delete classrooms in schools they belong to
         if ($user->hasRole('teacher')) {
-            return $user->id === $classRoom->user_id;
+            return $this->teacherBelongsToClassroomSchool($user, $classRoom);
         }
         
         // Admins can delete any classroom
@@ -108,5 +109,33 @@ class ClassRoomPolicy
     public function forceDelete(User $user, ClassRoom $classRoom)
     {
         return $user->hasRole('admin');
+    }
+
+    /**
+     * Check if teacher belongs to the school of the classroom.
+     *
+     * @param  \App\Models\User  $user
+     * @param  \App\Models\ClassRoom  $classRoom
+     * @return bool
+     */
+    private function teacherBelongsToClassroomSchool(User $user, ClassRoom $classRoom): bool
+    {
+        // Check if teacher is approved for this school through school_teacher table
+        $isApprovedForSchool = DB::table('school_teacher')
+            ->where('user_id', $user->id)
+            ->where('school_id', $classRoom->school_id)
+            ->where('is_approved', true)
+            ->exists();
+
+        if ($isApprovedForSchool) {
+            return true;
+        }
+
+        // Also check if teacher has any classroom in this school (legacy support)
+        $hasClassroomInSchool = \App\Models\ClassRoom::where('user_id', $user->id)
+            ->where('school_id', $classRoom->school_id)
+            ->exists();
+
+        return $hasClassroomInSchool;
     }
 }

@@ -225,6 +225,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (noResults) {
                 noResults.style.display = visibleRows === 0 ? 'block' : 'none';
             }
+            
+            // Reset select all checkbox and update count after filtering
+            const selectAllCheckbox = document.getElementById('selectAllStudents');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
+            
+            // Update the selected count display
+            updateSelectedCount();
         }
         
         // Add event listeners
@@ -247,6 +257,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Run initial filter
         applyFilter();
     }
+    
+    // Initialize checkbox state on page load
+    updateSelectedCount();
     
     // Credentials modal setup
     const viewButtons = document.querySelectorAll('.view-credentials');
@@ -296,8 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Global functions for PDF generation and checkbox handling
 function toggleAllStudents() {
     console.log('toggleAllStudents called');
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllStudents');
+    const studentCheckboxes = document.querySelectorAll('.student-checkbox:not([style*="display: none"])');
     
     if (!selectAllCheckbox) {
         console.error('Select all checkbox not found');
@@ -305,10 +318,14 @@ function toggleAllStudents() {
     }
     
     console.log('Select all checkbox checked:', selectAllCheckbox.checked);
-    console.log('Found', studentCheckboxes.length, 'student checkboxes');
+    console.log('Found', studentCheckboxes.length, 'visible student checkboxes');
     
+    // Only toggle checkboxes for visible rows (not filtered out)
     studentCheckboxes.forEach(function(checkbox) {
-        checkbox.checked = selectAllCheckbox.checked;
+        const row = checkbox.closest('tr');
+        if (row && row.style.display !== 'none') {
+            checkbox.checked = selectAllCheckbox.checked;
+        }
     });
     
     updateSelectedCount();
@@ -328,20 +345,34 @@ function updateSelectedCount() {
             pdfButton.disabled = false;
             pdfButton.classList.remove('btn-secondary');
             pdfButton.classList.add('btn-primary');
+            pdfButton.textContent = `PDF للمختارين (${selectedCount})`;
         } else {
             pdfButton.disabled = true;
             pdfButton.classList.remove('btn-primary');
             pdfButton.classList.add('btn-secondary');
+            pdfButton.innerHTML = '<i class="fas fa-file-pdf"></i> PDF للمختارين';
         }
     }
     
     // Update select all checkbox state
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const allCheckboxes = document.querySelectorAll('.student-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllStudents');
+    const visibleCheckboxes = document.querySelectorAll('.student-checkbox');
+    const visibleCheckedBoxes = document.querySelectorAll('.student-checkbox:checked');
     
-    if (selectAllCheckbox && allCheckboxes.length > 0) {
-        selectAllCheckbox.checked = selectedCount === allCheckboxes.length;
-        selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < allCheckboxes.length;
+    if (selectAllCheckbox && visibleCheckboxes.length > 0) {
+        // Only consider visible checkboxes for the select all state
+        const visibleCount = Array.from(visibleCheckboxes).filter(cb => {
+            const row = cb.closest('tr');
+            return row && row.style.display !== 'none';
+        }).length;
+        
+        const visibleSelectedCount = Array.from(visibleCheckedBoxes).filter(cb => {
+            const row = cb.closest('tr');
+            return row && row.style.display !== 'none';
+        }).length;
+        
+        selectAllCheckbox.checked = visibleSelectedCount === visibleCount && visibleCount > 0;
+        selectAllCheckbox.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleCount;
     }
 }
 
@@ -356,6 +387,12 @@ function generateSelectedPdf() {
         alert('يرجى اختيار طالب واحد على الأقل');
         return;
     }
+    
+    // Show loading state
+    const pdfButton = document.getElementById('pdfSelectedBtn');
+    const originalText = pdfButton.innerHTML;
+    pdfButton.disabled = true;
+    pdfButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري إنشاء الملف...';
     
     // Create form and submit
     const form = document.createElement('form');
@@ -382,6 +419,12 @@ function generateSelectedPdf() {
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
+    
+    // Reset button state after a short delay
+    setTimeout(function() {
+        pdfButton.disabled = false;
+        pdfButton.innerHTML = originalText;
+    }, 3000);
 }
 </script>
 @endsection 

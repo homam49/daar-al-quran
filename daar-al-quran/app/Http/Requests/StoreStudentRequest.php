@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 
 class StoreStudentRequest extends FormRequest
 {
@@ -13,12 +14,31 @@ class StoreStudentRequest extends FormRequest
      */
     public function authorize()
     {
-        // Check if user is a teacher and owns the classroom
         $classroom = $this->route('classroom');
-        return $this->user() && 
-               $this->user()->hasRole('teacher') && 
-               $classroom && 
-               $classroom->user_id === $this->user()->id;
+        $user = $this->user();
+        
+        if (!$user || !$user->hasRole('teacher') || !$classroom) {
+            return false;
+        }
+        
+        // Check if teacher has access to the classroom's school
+        $teacherId = $user->id;
+        
+        // Check if teacher is approved for this school
+        $isApprovedForSchool = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->where('is_approved', true)
+            ->exists();
+
+        if ($isApprovedForSchool) {
+            return true;
+        }
+
+        // Also check if teacher has any classroom in this school (legacy support)
+        return \App\Models\ClassRoom::where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->exists();
     }
 
     /**
@@ -51,7 +71,7 @@ class StoreStudentRequest extends FormRequest
                 }
             ];
         } else {
-            // Creating new student
+            // If creating new student
             $rules = [
                 'first_name' => 'required|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
@@ -75,19 +95,15 @@ class StoreStudentRequest extends FormRequest
     {
         return [
             'first_name.required' => 'الاسم الأول مطلوب',
-            'first_name.max' => 'الاسم الأول يجب أن يكون أقل من 255 حرف',
             'last_name.required' => 'اسم العائلة مطلوب',
-            'last_name.max' => 'اسم العائلة يجب أن يكون أقل من 255 حرف',
             'birth_year.required' => 'سنة الميلاد مطلوبة',
             'birth_year.digits' => 'سنة الميلاد يجب أن تكون 4 أرقام',
             'birth_year.min' => 'سنة الميلاد غير صحيحة',
             'birth_year.max' => 'سنة الميلاد لا يمكن أن تكون في المستقبل',
             'email.email' => 'البريد الإلكتروني غير صحيح',
-            'email.unique' => 'البريد الإلكتروني مستخدم من قبل',
-            'phone.max' => 'رقم الهاتف يجب أن يكون أقل من 20 رقم',
-            'address.max' => 'العنوان يجب أن يكون أقل من 500 حرف',
+            'email.unique' => 'البريد الإلكتروني مستخدم بالفعل',
             'existing_student_id.required' => 'يجب اختيار طالب',
-            'existing_student_id.exists' => 'الطالب المحدد غير موجود',
+            'existing_student_id.exists' => 'الطالب المختار غير موجود',
         ];
     }
 }

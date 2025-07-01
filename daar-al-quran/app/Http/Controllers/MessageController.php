@@ -3,53 +3,88 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
-use App\Models\ClassRoom;
 use App\Models\Student;
+use App\Models\ClassRoom;
+use App\Services\TeacherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class MessageController extends Controller
 {
+    protected $teacherService;
+
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(TeacherService $teacherService)
     {
         $this->middleware(['auth', 'role:teacher', 'approved']);
+        $this->teacherService = $teacherService;
     }
 
     /**
-     * Display a listing of the messages.
+     * Display a listing of messages for the teacher.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
     public function index(Request $request)
     {
-        // Get the filter parameter from the request
-        $filter = $request->input('filter', 'all'); // Default to 'all' if not specified
+        $filter = $request->get('filter', 'all');
         
-        // Get messages sent by this teacher
-        $sentMessages = Message::where('sender_id', Auth::id())
-            ->where('sender_type', 'teacher')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        // Base query for messages to the teacher
+        $messagesQuery = Message::where('recipient_id', Auth::id())
+            ->where('sender_type', 'student');
+        
+        // Apply filter
+        switch ($filter) {
+            case 'unread':
+                $messagesQuery->where('is_read', false);
+                break;
+            case 'read':
+                $messagesQuery->where('is_read', true);
+                break;
+            case 'class':
+                $messagesQuery->whereNotNull('class_room_id');
+                break;
+            case 'personal':
+                $messagesQuery->whereNull('class_room_id');
+                break;
+        }
+        
+        $messages = $messagesQuery->orderBy('created_at', 'desc')->paginate(15);
+        
+        // Also get messages sent by teacher for display, but group broadcast messages
+        $sentMessagesQuery = Message::where('sender_id', Auth::id())
+            ->where('sender_type', 'teacher');
             
-        // Group class messages by class_room_id, subject, content and created_at to avoid duplication
-        $groupedSentMessages = collect();
-        $groupedClassMessages = [];
+        // Apply same filter
+        switch ($filter) {
+            case 'class':
+                $sentMessagesQuery->whereNotNull('class_room_id');
+                break;
+            case 'personal':
+                $sentMessagesQuery->whereNull('class_room_id');
+                break;
+        }
         
-        // Process sent messages to deduplicate class messages
+        $sentMessages = $sentMessagesQuery->orderBy('created_at', 'desc')->get();
+        
+        // Group broadcast messages (class messages) by subject, content, class_room_id and created_at
+        $groupedSentMessages = collect();
+        $seenBroadcasts = [];
+        
         foreach ($sentMessages as $message) {
-            if ($message->type === 'class') {
-                // Create a unique key for this class message
-                $key = $message->class_room_id . '_' . $message->subject . '_' . 
-                       md5($message->content) . '_' . $message->created_at->format('Y-m-d H:i:s');
+            if ($message->type === 'class' && $message->class_room_id) {
+                // Create a unique key for this broadcast message
+                $key = $message->class_room_id . '|' . $message->subject . '|' . 
+                       md5($message->content) . '|' . $message->created_at->format('Y-m-d H:i:s');
                 
-                // Only add this class message if we haven't seen it before
-                if (!isset($groupedClassMessages[$key])) {
-                    $groupedClassMessages[$key] = $message;
+                // Only add the first occurrence of each broadcast message
+                if (!isset($seenBroadcasts[$key])) {
+                    $seenBroadcasts[$key] = true;
                     $groupedSentMessages->push($message);
                 }
             } else {
@@ -58,21 +93,8 @@ class MessageController extends Controller
             }
         }
         
-        // Get messages received from students
-        $receivedMessages = Message::where('recipient_id', Auth::id())
-            ->where('sender_type', 'student')
-            ->orderBy('created_at', 'desc')
-            ->get();
-            
-        // Apply filter
-        $allMessages = collect();
-        if ($filter === 'all') {
-            $allMessages = $groupedSentMessages->concat($receivedMessages);
-        } elseif ($filter === 'sent') {
-            $allMessages = $groupedSentMessages;
-        } elseif ($filter === 'received') {
-            $allMessages = $receivedMessages;
-        }
+        // Combine both collections
+        $allMessages = $messages->getCollection()->merge($groupedSentMessages);
         
         // Sort by creation date (newest first)
         $allMessages = $allMessages->sortByDesc('created_at');
@@ -100,9 +122,9 @@ class MessageController extends Controller
      */
     public function create()
     {
-        $classRooms = ClassRoom::where('user_id', Auth::id())->get();
+        $classRooms = $this->teacherService->getAccessibleClassrooms();
         
-        // Get all students from the teacher's classes
+        // Get all students from the teacher's accessible classes
         $studentIds = [];
         foreach ($classRooms as $classroom) {
             $studentIds = array_merge($studentIds, $classroom->students->pluck('id')->toArray());
@@ -130,15 +152,16 @@ class MessageController extends Controller
         ]);
 
         if ($request->type === 'personal') {
-            // Verify that the student is in one of the teacher's classes
+            // Verify that the student is in one of the teacher's accessible classes
             $student = Student::findOrFail($request->student_id);
-            $classRoomIds = ClassRoom::where('user_id', Auth::id())->pluck('id');
+            $accessibleClassrooms = $this->teacherService->getAccessibleClassrooms();
+            $classRoomIds = $accessibleClassrooms->pluck('id');
             
-            $isStudentInTeachersClass = $student->classRooms()
+            $isStudentInAccessibleClass = $student->classRooms()
                 ->whereIn('class_rooms.id', $classRoomIds)
                 ->exists();
             
-            if (!$isStudentInTeachersClass) {
+            if (!$isStudentInAccessibleClass) {
                 return back()->with('error', 'الطالب ليس في أي من فصولك');
             }
             
@@ -155,10 +178,10 @@ class MessageController extends Controller
             
             return redirect()->route('teacher.messages')->with('success', 'تم إرسال الرسالة بنجاح');
         } else {
-            // Verify that the classroom belongs to the teacher
+            // Verify that the teacher has access to the classroom
             $classroom = ClassRoom::findOrFail($request->class_room_id);
             
-            if ($classroom->user_id != Auth::id()) {
+            if (!$this->teacherService->hasAccessToClassroom($classroom->id)) {
                 abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
             }
             
@@ -171,16 +194,16 @@ class MessageController extends Controller
             
             // Create a message for each student in the class
             foreach ($students as $student) {
-            Message::create([
-                'subject' => $request->subject,
-                'content' => $request->content,
-                'type' => 'class',
-                'sender_id' => Auth::id(),
+                Message::create([
+                    'subject' => $request->subject,
+                    'content' => $request->content,
+                    'type' => 'class',
+                    'sender_id' => Auth::id(),
                     'sender_type' => 'teacher',
                     'student_id' => $student->id,
-                'class_room_id' => $request->class_room_id,
-                'is_read' => false,
-            ]);
+                    'class_room_id' => $request->class_room_id,
+                    'is_read' => false,
+                ]);
             }
             
             return redirect()->route('teacher.messages')->with('success', "تم إرسال الإعلان إلى {$students->count()} طالب في الفصل بنجاح");

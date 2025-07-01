@@ -2,340 +2,259 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Attendance;
-use App\Models\ClassRoom;
 use App\Models\ClassSession;
-use App\Models\Message;
+use App\Models\ClassRoom;
+use App\Models\Student;
+use App\Models\Attendance;
 use App\Services\ClassSessionService;
+use App\Services\TeacherService;
+use App\Http\Requests\StoreSessionRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ClassSessionController extends Controller
 {
-    private $sessionService;
+    protected $classSessionService;
+    protected $teacherService;
 
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct(ClassSessionService $sessionService)
+    public function __construct(ClassSessionService $classSessionService, TeacherService $teacherService)
     {
         $this->middleware(['auth', 'role:teacher', 'approved']);
-        $this->sessionService = $sessionService;
+        $this->classSessionService = $classSessionService;
+        $this->teacherService = $teacherService;
     }
 
     /**
-     * Display a listing of the sessions for a specific classroom.
+     * Display a listing of all sessions for the teacher.
      *
-     * @param  \App\Models\ClassRoom  $classroom
      * @return \Illuminate\Http\Response
      */
-    public function index(ClassRoom $classroom)
+    public function all()
     {
-        // Check if the authenticated user owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-
-        $sessions = $classroom->sessions()->orderBy('session_date', 'desc')->get();
+        $classrooms = $this->teacherService->getAccessibleClassrooms();
         
-        return view('teacher.sessions.index', compact('classroom', 'sessions'));
+        $sessions = ClassSession::whereIn('class_room_id', $classrooms->pluck('id'))
+            ->with(['classRoom.school', 'attendances'])
+            ->orderBy('session_date', 'desc')
+            ->paginate(15);
+
+        // Get unique schools from the classrooms
+        $schools = $classrooms->pluck('school')->unique('id')->filter();
+
+        return view('teacher.sessions.all', compact('sessions', 'classrooms', 'schools'));
     }
 
     /**
      * Show the form for creating a new session.
      *
-     * @param  int  $classroomId
+     * @param  \App\Models\ClassRoom  $classroom
      * @return \Illuminate\Http\Response
      */
-    public function create($classroomId)
+    public function create(ClassRoom $classroom)
     {
-        try {
-            $data = $this->sessionService->getSessionCreationData($classroomId);
-            return view('teacher.sessions.create', $data);
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        $this->authorize('view', $classroom);
+
+        $students = $classroom->students;
+        
+        // Get schedule times for the classroom
+        $times = $this->getScheduleTimes($classroom);
+        $startTime = $times['start'];
+        $endTime = $times['end'];
+        
+        return view('teacher.sessions.create', compact('classroom', 'students', 'startTime', 'endTime'));
+    }
+
+    /**
+     * Get default schedule times for classroom
+     *
+     * @param ClassRoom $classroom
+     * @return array
+     */
+    private function getScheduleTimes(ClassRoom $classroom): array
+    {
+        $currentDay = now()->dayOfWeek;
+        $startTime = '08:00';
+        $endTime = '09:00';
+        
+        // Find schedule for current day
+        $schedule = $classroom->schedules()
+            ->where('day', $currentDay)
+            ->first();
+        
+        if ($schedule) {
+            $startTime = $schedule->start_time->format('H:i');
+            $endTime = $schedule->end_time->format('H:i');
+        } else {
+            // Try to find any schedule for this class
+            $anySchedule = $classroom->schedules()->first();
+            if ($anySchedule) {
+                $startTime = $anySchedule->start_time->format('H:i');
+                $endTime = $anySchedule->end_time->format('H:i');
+            }
         }
+        
+        return ['start' => $startTime, 'end' => $endTime];
     }
 
     /**
      * Store a newly created session in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $classroomId
+     * @param  \App\Http\Requests\StoreSessionRequest  $request
+     * @param  \App\Models\ClassRoom  $classroom
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request, $classroomId)
+    public function store(StoreSessionRequest $request, ClassRoom $classroom)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
-        }
-        
-        $request->validate([
-            'session_date' => 'required|date',
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i',
-            'description' => 'nullable|string',
-            'attendance' => 'required|array',
-            'attendance.*' => 'required|in:present,absent,late',
-            'notes' => 'nullable|array',
-        ]);
-        
-        // Ensure end time is after start time
-        $startTime = $request->start_time;
-        $endTime = $request->end_time;
-        
-        $startHour = (int)substr($startTime, 0, 2);
-        $startMinute = (int)substr($startTime, 3, 2);
-        $startTimeMinutes = $startHour * 60 + $startMinute;
-        
-        $endHour = (int)substr($endTime, 0, 2);
-        $endMinute = (int)substr($endTime, 3, 2);
-        $endTimeMinutes = $endHour * 60 + $endMinute;
-        
-        // If end time is before or equal to start time, add an hour
-        if ($endTimeMinutes <= $startTimeMinutes) {
-            $endTimeMinutes = $startTimeMinutes + 60;
-            $endHour = floor($endTimeMinutes / 60);
-            $endMinute = $endTimeMinutes % 60;
-            
-            if ($endHour >= 24) {
-                $endHour = $endHour - 24;
-            }
-            
-            $endTime = sprintf('%02d:%02d', $endHour, $endMinute);
-        }
-        
-        // Create the session
-        $session = ClassSession::create([
-            'session_date' => $request->session_date,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'description' => $request->description,
-            'class_room_id' => $classroom->id,
-        ]);
-        
-        // Record attendance for each student
-        foreach ($request->attendance as $studentId => $status) {
-            Attendance::create([
-                'status' => $status,
-                'note' => $request->notes[$studentId] ?? null,
-                'student_id' => $studentId,
-                'class_session_id' => $session->id,
-            ]);
-        }
-        
-        // Check if we need to send a class-wide message
-        if ($request->filled('send_message') && $request->filled('message_title') && $request->filled('message_content')) {
-            Message::create([
-                'title' => $request->message_title,
-                'content' => $request->message_content,
-                'sender_id' => Auth::id(),
-                'class_room_id' => $classroom->id,
-                'type' => 'class',
-            ]);
-        }
-        
-        return redirect()->route('classrooms.show', $classroom->id)
-            ->with('success', 'تم إنشاء الجلسة وتسجيل الحضور بنجاح');
+        $this->authorize('view', $classroom);
+
+        $session = $this->classSessionService->createSession($classroom, $request->validated());
+
+        return redirect()->route('classroom.sessions.show', [$classroom, $session])
+            ->with('success', 'تم إنشاء الجلسة بنجاح');
     }
 
     /**
      * Display the specified session.
      *
-     * @param  int  $classroomId
-     * @param  int  $sessionId
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\ClassSession  $session
      * @return \Illuminate\Http\Response
      */
-    public function show($classroomId, $sessionId)
+    public function show(ClassRoom $classroom, ClassSession $session)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
+        $this->authorize('view', $classroom);
+
+        // Ensure session belongs to classroom
+        if ($session->class_room_id != $classroom->id) {
+            abort(404);
         }
-        
-        $session = ClassSession::with(['attendances.student'])->findOrFail($sessionId);
-        
-        if ($session->class_room_id != $classroomId) {
-            return back()->with('error', 'هذه الجلسة لا تنتمي إلى هذا الفصل');
-        }
-        
-        return view('teacher.sessions.show', compact('classroom', 'session'));
+
+        $session->load(['classRoom', 'attendances.student']);
+        $students = $classroom->students;
+        $attendances = $session->attendances()->pluck('status', 'student_id')->toArray();
+        $notes = $session->attendances()->pluck('note', 'student_id')->toArray();
+
+        return view('teacher.sessions.show', compact('classroom', 'session', 'students', 'attendances', 'notes'));
     }
 
     /**
      * Show the form for editing the specified session.
      *
-     * @param  int  $classroomId
-     * @param  int  $sessionId
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\ClassSession  $session
      * @return \Illuminate\Http\Response
      */
-    public function edit($classroomId, $sessionId)
+    public function edit(ClassRoom $classroom, ClassSession $session)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
+        $this->authorize('update', $classroom);
+
+        // Ensure session belongs to classroom
+        if ($session->class_room_id != $classroom->id) {
+            abort(404);
         }
-        
-        $session = ClassSession::with(['attendances.student'])->findOrFail($sessionId);
-        
-        if ($session->class_room_id != $classroomId) {
-            return back()->with('error', 'هذه الجلسة لا تنتمي إلى هذا الفصل');
-        }
-        
-        return view('teacher.sessions.edit', compact('classroom', 'session'));
+
+        $students = $classroom->students;
+
+        return view('teacher.sessions.edit', compact('classroom', 'session', 'students'));
     }
 
     /**
      * Update the specified session in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  int  $classroomId
-     * @param  int  $sessionId
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\ClassSession  $session
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $classroomId, $sessionId)
+    public function update(Request $request, ClassRoom $classroom, ClassSession $session)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
+        $this->authorize('update', $classroom);
+
+        // Ensure session belongs to classroom
+        if ($session->class_room_id != $classroom->id) {
+            abort(404);
         }
-        
-        $session = ClassSession::findOrFail($sessionId);
-        
-        if ($session->class_room_id != $classroomId) {
-            return back()->with('error', 'هذه الجلسة لا تنتمي إلى هذا الفصل');
-        }
-        
-        $request->validate([
-            'session_date' => 'required|date',
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i',
+
+        $validatedData = $request->validate([
             'description' => 'nullable|string',
-            'attendance' => 'required|array',
-            'attendance.*.status' => 'required|in:present,absent,late',
-            'attendance.*.note' => 'nullable|string',
+            'session_date' => 'required|date',
+            'start_time' => 'required',
+            'end_time' => 'required|after:start_time',
+            'attendance' => 'nullable|array',
+            'attendance.*.status' => 'nullable|in:present,absent,late',
+            'attendance.*.note' => 'nullable|string|max:255',
         ]);
-        
-        // Ensure end time is after start time
-        $startTime = $request->start_time;
-        $endTime = $request->end_time;
-        
-        $startHour = (int)substr($startTime, 0, 2);
-        $startMinute = (int)substr($startTime, 3, 2);
-        $startTimeMinutes = $startHour * 60 + $startMinute;
-        
-        $endHour = (int)substr($endTime, 0, 2);
-        $endMinute = (int)substr($endTime, 3, 2);
-        $endTimeMinutes = $endHour * 60 + $endMinute;
-        
-        // If end time is before or equal to start time, add an hour
-        if ($endTimeMinutes <= $startTimeMinutes) {
-            $endTimeMinutes = $startTimeMinutes + 60;
-            $endHour = floor($endTimeMinutes / 60);
-            $endMinute = $endTimeMinutes % 60;
-            
-            if ($endHour >= 24) {
-                $endHour = $endHour - 24;
-            }
-            
-            $endTime = sprintf('%02d:%02d', $endHour, $endMinute);
-        }
-        
-        // Update the session
+
+        // Update session basic info
         $session->update([
-            'session_date' => $request->session_date,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'description' => $request->description,
+            'description' => $validatedData['description'],
+            'session_date' => $validatedData['session_date'],
+            'start_time' => $validatedData['start_time'],
+            'end_time' => $validatedData['end_time'],
         ]);
-        
-        // Update attendance for each student
-        foreach ($request->attendance as $studentId => $data) {
-            $attendance = Attendance::where('class_session_id', $session->id)
-                ->where('student_id', $studentId)
-                ->first();
-                
-            if ($attendance) {
-                $attendance->update([
-                    'status' => $data['status'],
-                    'note' => $data['note'] ?? null,
-                ]);
-            } else {
-                Attendance::create([
-                    'status' => $data['status'],
-                    'note' => $data['note'] ?? null,
-                    'student_id' => $studentId,
-                    'class_session_id' => $session->id,
-                ]);
-            }
+
+        // Update attendance if provided
+        if (!empty($validatedData['attendance'])) {
+            $this->classSessionService->updateAttendance($session, $validatedData);
         }
-        
-        return redirect()->route('classroom.sessions.show', [$classroom->id, $session->id])
-            ->with('success', 'تم تحديث الحضور بنجاح');
+
+        return redirect()->route('classroom.sessions.show', [$classroom, $session])
+            ->with('success', 'تم تحديث الجلسة بنجاح');
     }
 
     /**
      * Remove the specified session from storage.
      *
-     * @param  int  $classroomId
-     * @param  int  $sessionId
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\ClassSession  $session
      * @return \Illuminate\Http\Response
      */
-    public function destroy($classroomId, $sessionId)
+    public function destroy(ClassRoom $classroom, ClassSession $session)
     {
-        $classroom = ClassRoom::findOrFail($classroomId);
-        
-        // Check if the teacher owns this classroom
-        if ($classroom->user_id != Auth::id()) {
-            return back()->with('error', 'غير مصرح لك بالوصول إلى هذا الفصل');
+        $this->authorize('delete', $classroom);
+
+        // Ensure session belongs to classroom
+        if ($session->class_room_id != $classroom->id) {
+            abort(404);
         }
+
+        // Store classroom ID before deleting session
+        $classroomId = $classroom->id;
         
-        $session = ClassSession::findOrFail($sessionId);
-        
-        if ($session->class_room_id != $classroomId) {
-            return back()->with('error', 'هذه الجلسة لا تنتمي إلى هذا الفصل');
-        }
-        
-        // Delete the session (this will also delete related attendance records via foreign keys)
+        // Delete the session
         $session->delete();
-        
-        return redirect()->route('classrooms.show', $classroom->id)
+
+        // Redirect with explicit success message and classroom ID
+        return redirect()
+            ->route('classrooms.show', ['classroom' => $classroomId])
             ->with('success', 'تم حذف الجلسة بنجاح');
     }
 
     /**
-     * Display a listing of all sessions for a teacher across all classrooms.
+     * Update attendance for a session.
      *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\ClassRoom  $classroom
+     * @param  \App\Models\ClassSession  $session
      * @return \Illuminate\Http\Response
      */
-    public function allSessions()
+    public function updateAttendance(Request $request, ClassRoom $classroom, ClassSession $session)
     {
-        $teacher = Auth::user();
-        
-        // Get all classrooms owned by this teacher
-        $classrooms = ClassRoom::where('user_id', $teacher->id)->with('school')->get();
-        
-        // Get all sessions from these classrooms with pagination
-        $sessions = ClassSession::whereIn('class_room_id', $classrooms->pluck('id'))
-            ->orderBy('session_date', 'desc')
-            ->orderBy('start_time', 'desc')
-            ->with(['classroom.school', 'attendances'])
-            ->paginate(15);
-        
-        // Get unique schools from the classrooms for the filter
-        $schools = $classrooms->pluck('school')->unique('id')->sortBy('name');
-        
-        return view('teacher.sessions.all', compact('sessions', 'classrooms', 'schools'));
+        $this->authorize('update', $classroom);
+
+        // Ensure session belongs to classroom
+        if ($session->class_room_id != $classroom->id) {
+            abort(404);
+        }
+
+        $this->classSessionService->updateAttendance($session, $request->all());
+
+        return redirect()->route('classroom.sessions.show', [$classroom, $session])
+            ->with('success', 'تم تحديث الحضور بنجاح');
     }
 }

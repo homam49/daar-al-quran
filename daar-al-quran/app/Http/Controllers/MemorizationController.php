@@ -2,150 +2,124 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\MemorizationProgress;
-use App\Models\Student;
-use App\Models\ClassRoom;
-use App\Services\MemorizationService;
 use App\Http\Requests\MemorizationUpdateRequest;
+use App\Models\Student;
+use App\Services\MemorizationService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class MemorizationController extends Controller
 {
     protected $memorizationService;
 
-    /**
-     * Create a new controller instance.
-     */
     public function __construct(MemorizationService $memorizationService)
     {
-        $this->middleware(['auth']);
         $this->memorizationService = $memorizationService;
     }
 
     /**
-     * Display memorization progress for a student (Teacher view).
+     * Show memorization tracking page for teacher.
      *
-     * @param  \App\Models\Student  $student
-     * @return \Illuminate\Http\Response
+     * @param Student $student
+     * @return \Illuminate\View\View
      */
     public function show(Student $student)
     {
-        // Authorization check
-        $this->authorizeTeacherAccess($student);
-
-        // Get progress data using service
+        // Check if teacher has access to this student
+        $this->authorize('update', [Student::class, $student]);
+        
         $data = $this->memorizationService->getProgressData($student);
-
-        return view('memorization.show', array_merge($data, ['student' => $student]));
+        
+        return view('memorization.show', array_merge($data, [
+            'student' => $student
+        ]));
     }
 
     /**
-     * Update memorization status for a student.
+     * Update memorization progress.
      *
-     * @param  \App\Http\Requests\MemorizationUpdateRequest  $request
-     * @param  \App\Models\Student  $student
-     * @return \Illuminate\Http\Response
+     * @param MemorizationUpdateRequest $request
+     * @param Student $student
+     * @return \Illuminate\Http\JsonResponse
      */
     public function update(MemorizationUpdateRequest $request, Student $student)
     {
         try {
+            $teacherId = Auth::id();
             $progress = $this->memorizationService->updateProgress(
-                $student,
-                $request->validated(),
-                Auth::id()
+                $student, 
+                $request->validated(), 
+                $teacherId
             );
 
             return response()->json([
                 'success' => true,
-                'message' => 'تم تحديث حالة الحفظ بنجاح',
+                'message' => 'تم تحديث الحفظ بنجاح',
                 'progress' => $progress
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'حدث خطأ أثناء الحفظ: ' . $e->getMessage()
+                'message' => 'حدث خطأ في تحديث الحفظ: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Get memorization progress data for AJAX requests.
+     * Get specific progress information for teacher.
      *
-     * @param  \App\Models\Student  $student
-     * @param  string  $type
-     * @param  int  $number
-     * @return \Illuminate\Http\Response
+     * @param Student $student
+     * @param string $type
+     * @param int $number
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function getProgress(Student $student, $type, $number)
+    public function getProgressInfo(Student $student, $type, $number)
     {
-        // Authorization check
-        $this->authorizeTeacherAccess($student);
-
-        return response()->json(
-            $this->memorizationService->getProgressInfo($student, $type, $number)
-        );
+        // Check if teacher has access to this student
+        $this->authorize('update', [Student::class, $student]);
+        
+        $progressInfo = $this->memorizationService->getProgressInfo($student, $type, $number);
+        
+        return response()->json($progressInfo);
     }
 
     /**
-     * Display student's own memorization progress (Student view).
+     * Show memorization progress for student (their own).
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\View\View
      */
     public function showStudent()
     {
-        $student = auth('student')->user();
+        $student = Auth::guard('student')->user();
         
         if (!$student) {
-            abort(401, 'يجب تسجيل الدخول كطالب');
+            abort(403, 'غير مصرح');
         }
-
-        // Get progress data using service
+        
         $data = $this->memorizationService->getProgressData($student);
-
-        return view('memorization.student-show', array_merge($data, ['student' => $student]));
+        
+        return view('memorization.student-show', array_merge($data, [
+            'student' => $student
+        ]));
     }
 
     /**
-     * Get memorization progress data for student AJAX requests.
+     * Get specific progress information for student (their own).
      *
-     * @param  string  $type
-     * @param  int  $number
-     * @return \Illuminate\Http\Response
+     * @param string $type
+     * @param int $number
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getStudentProgress($type, $number)
     {
-        $student = auth('student')->user();
+        $student = Auth::guard('student')->user();
         
         if (!$student) {
-            return response()->json([
-                'error' => 'يجب تسجيل الدخول كطالب'
-            ], 401);
+            return response()->json(['error' => 'غير مصرح'], 403);
         }
-
-        return response()->json(
-            $this->memorizationService->getProgressInfo($student, $type, $number)
-        );
-    }
-
-    /**
-     * Check if teacher has access to student.
-     *
-     * @param Student $student
-     * @return void
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
-     */
-    private function authorizeTeacherAccess(Student $student): void
-    {
-        if (!Auth::user()->hasRole('teacher')) {
-            abort(403, 'غير مصرح بالوصول');
-        }
-
-        $teacherClassrooms = ClassRoom::where('user_id', Auth::id())->pluck('id');
-        $studentInTeacherClasses = $student->classRooms()->whereIn('class_room_id', $teacherClassrooms)->exists();
         
-        if (!$studentInTeacherClasses) {
-            abort(403, 'لا يمكنك الوصول لبيانات هذا الطالب');
-        }
+        $progressInfo = $this->memorizationService->getProgressInfo($student, $type, $number);
+        
+        return response()->json($progressInfo);
     }
-}
+} 

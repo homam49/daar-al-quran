@@ -28,10 +28,7 @@ class AttendanceController extends Controller
      */
     public function edit(ClassSession $session)
     {
-        // Check if the authenticated user owns the classroom of this session
-        if ($session->classRoom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذه الجلسة');
-        }
+        $this->authorize('view', $session->classRoom);
 
         $students = $session->classRoom->students;
         $attendances = $session->attendances()->pluck('status', 'student_id')->toArray();
@@ -49,37 +46,30 @@ class AttendanceController extends Controller
      */
     public function update(Request $request, ClassSession $session)
     {
-        // Check if the authenticated user owns the classroom of this session
-        if ($session->classRoom->user_id != Auth::id()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذه الجلسة');
-        }
+        $this->authorize('update', $session->classRoom);
 
         $request->validate([
-            'status' => 'required|array',
-            'status.*' => 'required|in:present,absent,late',
-            'note' => 'nullable|array',
-            'note.*' => 'nullable|string',
+            'attendance' => 'required|array',
+            'attendance.*' => 'required|in:present,absent,late',
+            'notes' => 'nullable|array',
+            'notes.*' => 'nullable|string|max:255',
         ]);
 
-        $students = $session->classRoom->students;
-
-        foreach ($students as $student) {
-            if (isset($request->status[$student->id])) {
-                // Get or create attendance record
-                $attendance = Attendance::updateOrCreate(
-                    [
-                        'student_id' => $student->id,
-                        'class_session_id' => $session->id,
-                    ],
-                    [
-                        'status' => $request->status[$student->id],
-                        'note' => $request->note[$student->id] ?? null,
-                    ]
-                );
-            }
+        // Update or create attendance records
+        foreach ($request->attendance as $studentId => $status) {
+            $attendance = Attendance::updateOrCreate(
+                [
+                    'class_session_id' => $session->id,
+                    'student_id' => $studentId,
+                ],
+                [
+                    'status' => $status,
+                    'note' => $request->notes[$studentId] ?? null,
+                ]
+            );
         }
 
-        return redirect()->route('teacher.classroom.sessions.show', [$session->classRoom->id, $session->id])
+        return redirect()->route('classroom.sessions.show', [$session->classRoom, $session])
             ->with('success', 'تم تحديث الحضور بنجاح');
     }
 }

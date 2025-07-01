@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 
 class UpdateStudentRequest extends FormRequest
 {
@@ -13,12 +14,31 @@ class UpdateStudentRequest extends FormRequest
      */
     public function authorize()
     {
-        // Check if user is a teacher and owns the classroom
         $classroom = $this->route('classroom');
-        return $this->user() && 
-               $this->user()->hasRole('teacher') && 
-               $classroom && 
-               $classroom->user_id === $this->user()->id;
+        $user = $this->user();
+        
+        if (!$user || !$user->hasRole('teacher') || !$classroom) {
+            return false;
+        }
+        
+        // Check if teacher has access to the classroom's school
+        $teacherId = $user->id;
+        
+        // Check if teacher is approved for this school
+        $isApprovedForSchool = DB::table('school_teacher')
+            ->where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->where('is_approved', true)
+            ->exists();
+
+        if ($isApprovedForSchool) {
+            return true;
+        }
+
+        // Also check if teacher has any classroom in this school (legacy support)
+        return \App\Models\ClassRoom::where('user_id', $teacherId)
+            ->where('school_id', $classroom->school_id)
+            ->exists();
     }
 
     /**
@@ -56,7 +76,7 @@ class UpdateStudentRequest extends FormRequest
             'birth_year.min' => 'سنة الميلاد غير صحيحة',
             'birth_year.max' => 'سنة الميلاد لا يمكن أن تكون في المستقبل',
             'email.email' => 'البريد الإلكتروني غير صحيح',
-            'email.unique' => 'البريد الإلكتروني مستخدم من قبل',
+            'email.unique' => 'البريد الإلكتروني مستخدم بالفعل',
             'phone.max' => 'رقم الهاتف يجب أن يكون أقل من 20 رقم',
             'address.max' => 'العنوان يجب أن يكون أقل من 500 حرف',
         ];
