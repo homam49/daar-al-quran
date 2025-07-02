@@ -26,8 +26,10 @@ class MemorizationService
         foreach ($progressRecords as $progress) {
             if ($progress->type === 'page') {
                 $progressLookup["page_{$progress->page_number}"] = $progress;
-            } else {
+            } elseif ($progress->type === 'surah') {
                 $progressLookup["surah_{$progress->surah_number}"] = $progress;
+            } elseif ($progress->type === 'juz') {
+                $progressLookup["juz_{$progress->content_details}"] = $progress;
             }
         }
 
@@ -47,14 +49,15 @@ class MemorizationService
      */
     public function calculateStatistics($progressRecords): array
     {
-        $totalItems = 581 + 37; // Pages + Surahs
+        $totalItems = 581 + 37 + 30; // Pages + Surahs + Juz
         $memorizedCount = $progressRecords->where('status', 'memorized')->count();
         $inProgressCount = $progressRecords->where('status', 'in_progress')->count();
         $completionPercentage = $totalItems > 0 ? round(($memorizedCount / $totalItems) * 100, 1) : 0;
 
-        // Separate statistics for pages and surahs
+        // Separate statistics for pages, surahs, and juz
         $pageProgress = $progressRecords->where('type', 'page');
         $surahProgress = $progressRecords->where('type', 'surah');
+        $juzProgress = $progressRecords->where('type', 'juz');
 
         return [
             'total' => $totalItems,
@@ -70,6 +73,11 @@ class MemorizationService
                 'total' => 37, // Surahs 78-114
                 'memorized' => $surahProgress->where('status', 'memorized')->count(),
                 'in_progress' => $surahProgress->where('status', 'in_progress')->count(),
+            ],
+            'juz' => [
+                'total' => 30, // Juz 1-30
+                'memorized' => $juzProgress->where('status', 'memorized')->count(),
+                'in_progress' => $juzProgress->where('status', 'in_progress')->count(),
             ]
         ];
     }
@@ -101,13 +109,20 @@ class MemorizationService
             $whereClause['page_number'] = $pageNumber;
             $updateData['page_number'] = $pageNumber;
             $updateData['content_name'] = $contentName;
-        } else {
+        } elseif ($type === 'surah') {
             $surahNumber = $data['surah_number'];
             $surahName = MemorizationProgress::getSurahName($surahNumber);
             $contentName = $surahName;
             $whereClause['surah_number'] = $surahNumber;
             $updateData['surah_number'] = $surahNumber;
             $updateData['surah_name'] = $surahName;
+            $updateData['content_name'] = $contentName;
+        } else { // juz
+            $juzNumber = $data['juz_number'];
+            $juzNames = MemorizationProgress::getAllJuz();
+            $contentName = $juzNames[$juzNumber] ?? "الجزء {$juzNumber}";
+            $whereClause['content_details'] = $juzNumber;
+            $updateData['content_details'] = $juzNumber;
             $updateData['content_name'] = $contentName;
         }
         
@@ -130,8 +145,10 @@ class MemorizationService
             
         if ($type === 'page') {
             $query->where('page_number', $number);
-        } else {
+        } elseif ($type === 'surah') {
             $query->where('surah_number', $number);
+        } else { // juz
+            $query->where('content_details', $number);
         }
         
         $progress = $query->first();

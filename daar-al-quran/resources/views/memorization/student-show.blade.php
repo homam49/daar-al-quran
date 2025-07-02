@@ -148,6 +148,11 @@
                                 <i class="fas fa-book me-2"></i>السور الأخيرة (78-114)
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="juz-tab" data-bs-toggle="tab" data-bs-target="#juz" type="button" role="tab">
+                                <i class="fas fa-bookmark me-2"></i>الأجزاء (1-30)
+                            </button>
+                        </li>
                     </ul>
                 </div>
 
@@ -179,10 +184,10 @@
                                             <div class="legend-box bg-success" style="width: 20px; height: 20px; border-radius: 4px;"></div>
                                             <small>محفوظ</small>
                                         </span>
-                                        <!-- <span class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center gap-2">
                                             <div class="legend-box bg-info" style="width: 20px; height: 20px; border-radius: 4px;"></div>
-                                            <small>تمت المراجعة</small>
-                                        </span> -->
+                                            <small>محفوظ سابقا</small>
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -199,8 +204,11 @@
                                                     case 'memorized':
                                                         $statusClass = 'bg-success text-white';
                                                         break;
-                                                    case 'reviewed':
+                                                    case 'previously_memorized':
                                                         $statusClass = 'bg-info text-white';
+                                                        break;
+                                                    case 'reviewed':
+                                                        $statusClass = 'bg-primary text-white';
                                                         break;
                                                     case 'in_progress':
                                                         $statusClass = 'bg-warning text-dark';
@@ -256,10 +264,10 @@
                                             <div class="legend-box bg-success" style="width: 20px; height: 20px; border-radius: 4px;"></div>
                                             <small>محفوظ</small>
                                         </span>
-                                        <!-- <span class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center gap-2">
                                             <div class="legend-box bg-info" style="width: 20px; height: 20px; border-radius: 4px;"></div>
-                                            <small>تمت المراجعة</small>
-                                        </span> -->
+                                            <small>محفوظ سابقا</small>
+                                        </span>
                                     </div>
                                 </div>
 
@@ -289,8 +297,11 @@
                                                     case 'memorized':
                                                         $statusClass = 'bg-success text-white';
                                                         break;
-                                                    case 'reviewed':
+                                                    case 'previously_memorized':
                                                         $statusClass = 'bg-info text-white';
+                                                        break;
+                                                    case 'reviewed':
+                                                        $statusClass = 'bg-primary text-white';
                                                         break;
                                                     case 'in_progress':
                                                         $statusClass = 'bg-warning text-dark';
@@ -317,6 +328,84 @@
                                                 </div>
                                             </div>
                                         @endfor
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Juz Tab -->
+                        <div class="tab-pane fade" id="juz" role="tabpanel">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0">الأجزاء (1-30) - 30 جزء</h5>
+                                    <div class="alert alert-info py-2 px-3 mb-0">
+                                        <small><i class="fas fa-info-circle me-1"></i>انقر على أي جزء لعرض الملاحظات (إن وجدت)</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Status Legend for Juz -->
+                                <div class="mb-3 p-3 bg-light rounded">
+                                    <div class="d-flex justify-content-center gap-4 flex-wrap">
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box bg-light border" style="width: 20px; height: 20px; border-radius: 4px;"></div>
+                                            <small>لم يبدأ</small>
+                                        </span>
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box" style="width: 20px; height: 20px; border-radius: 4px; background-color: #ffc0cb; border: 1px solid #e91e63;"></div>
+                                            <small>قيد الحفظ</small>
+                                        </span>
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box" style="width: 20px; height: 20px; border-radius: 4px; background-color: #e91e63;"></div>
+                                            <small>محفوظ</small>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Juz Grid -->
+                                <div class="juz-grid" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                                    <div class="row g-3">
+                                    @foreach(\App\Models\MemorizationProgress::getAllJuz() as $juzNumber => $juzName)
+                                        @php
+                                            $juzId = "juz_{$juzNumber}";
+                                            $progress = $progressLookup[$juzId] ?? null;
+                                            $status = $progress ? $progress->status : 'not_started';
+                                            $hasNotes = $progress && !empty($progress->notes);
+                                            switch($status) {
+                                                case 'memorized':
+                                                    $statusClass = 'text-white';
+                                                    $bgStyle = 'background-color: #e91e63;';
+                                                    break;
+                                                case 'reviewed':
+                                                    $statusClass = 'text-white';
+                                                    $bgStyle = 'background-color: #e91e63;';
+                                                    break;
+                                                case 'in_progress':
+                                                    $statusClass = 'text-dark';
+                                                    $bgStyle = 'background-color: #ffc0cb; border: 1px solid #e91e63;';
+                                                    break;
+                                                default:
+                                                    $statusClass = 'bg-light border';
+                                                    $bgStyle = '';
+                                                    break;
+                                            }
+                                        @endphp
+                                        <div class="col-lg-3 col-md-4 col-sm-6">
+                                            <div class="card {{ $statusClass }} h-100 position-relative" 
+                                                 style="cursor: pointer; {{ $bgStyle }}"
+                                                 @if($hasNotes) title="{{ $progress->notes }}" @endif
+                                                 onclick="showProgressInfo('juz', {{ $juzNumber }}, '{{ $juzName }}')">
+                                                <div class="card-body p-3 text-center">
+                                                    <h6 class="card-title mb-1">الجزء {{ $juzNumber }}</h6>
+                                                    <small class="opacity-75">{{ $juzName }}</small>
+                                                </div>
+                                                @if($hasNotes)
+                                                    <i class="fas fa-sticky-note position-absolute" 
+                                                       style="top: 8px; right: 8px; font-size: 14px; color: #dc3545; z-index: 10;" 
+                                                       title="يحتوي على ملاحظات"></i>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
                                     </div>
                                 </div>
                             </div>
@@ -410,11 +499,11 @@
     box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
 }
 
-.pages-grid .card, .surahs-grid .card {
+.pages-grid .card, .surahs-grid .card, .juz-grid .card {
     transition: transform 0.1s ease;
 }
 
-.pages-grid .card:hover, .surahs-grid .card:hover {
+.pages-grid .card:hover, .surahs-grid .card:hover, .juz-grid .card:hover {
     transform: scale(1.05);
 }
 
@@ -445,6 +534,10 @@
     }
     
     .surahs-grid {
+        max-height: 400px;
+    }
+    
+    .juz-grid {
         max-height: 400px;
     }
     
@@ -576,9 +669,13 @@ function showProgressInfo(type, number, name) {
                     statusText = 'محفوظ';
                     statusClass = 'badge bg-success';
                     break;
+                case 'previously_memorized':
+                    statusText = 'محفوظ سابقا';
+                    statusClass = 'badge bg-info';
+                    break;
                 case 'reviewed':
                     statusText = 'تمت المراجعة';
-                    statusClass = 'badge bg-info';
+                    statusClass = 'badge bg-primary';
                     break;
                 case 'in_progress':
                     statusText = 'قيد الحفظ';

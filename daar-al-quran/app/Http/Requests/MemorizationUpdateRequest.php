@@ -58,10 +58,11 @@ class MemorizationUpdateRequest extends FormRequest
     public function rules()
     {
         return [
-            'type' => 'required|in:page,surah',
+            'type' => 'required|in:page,surah,juz',
             'page_number' => 'nullable|integer|between:1,581',
             'surah_number' => 'nullable|integer|between:78,114',
-            'status' => 'required|in:not_started,in_progress,memorized',
+            'juz_number' => 'nullable|integer|between:1,30',
+            'status' => 'required|in:not_started,in_progress,memorized,previously_memorized',
             'notes' => 'nullable|string|max:1000'
         ];
     }
@@ -75,11 +76,13 @@ class MemorizationUpdateRequest extends FormRequest
     {
         return [
             'type.required' => 'نوع المحتوى مطلوب',
-            'type.in' => 'نوع المحتوى يجب أن يكون صفحة أو سورة',
+            'type.in' => 'نوع المحتوى يجب أن يكون صفحة أو سورة أو جزء',
             'page_number.integer' => 'رقم الصفحة يجب أن يكون رقم صحيح',
             'page_number.between' => 'رقم الصفحة يجب أن يكون بين 1 و 581',
             'surah_number.integer' => 'رقم السورة يجب أن يكون رقم صحيح',
             'surah_number.between' => 'رقم السورة يجب أن يكون بين 78 و 114',
+            'juz_number.integer' => 'رقم الجزء يجب أن يكون رقم صحيح',
+            'juz_number.between' => 'رقم الجزء يجب أن يكون بين 1 و 30',
             'status.required' => 'حالة الحفظ مطلوبة',
             'status.in' => 'حالة الحفظ غير صحيحة',
             'notes.max' => 'الملاحظات يجب أن تكون أقل من 1000 حرف'
@@ -103,6 +106,10 @@ class MemorizationUpdateRequest extends FormRequest
             
             if ($type === 'surah' && !$this->has('surah_number')) {
                 $validator->errors()->add('surah_number', 'رقم السورة مطلوب عند اختيار نوع سورة');
+            }
+            
+            if ($type === 'juz' && !$this->has('juz_number')) {
+                $validator->errors()->add('juz_number', 'رقم الجزء مطلوب عند اختيار نوع جزء');
             }
         });
     }

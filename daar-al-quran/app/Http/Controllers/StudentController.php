@@ -228,10 +228,32 @@ class StudentController extends Controller
     {
         $student = Auth::guard('student')->user();
         
-        // Get teachers from student's classrooms
-        $teachers = \App\Models\User::whereIn('id', 
-            $student->classRooms->pluck('user_id')
-        )->get();
+        // First try to get all teachers in the student's school using direct school_id
+        $teachers = \App\Models\User::where('school_id', $student->school_id)
+            ->whereHas('role', function($query) {
+                $query->where('name', 'teacher');
+            })
+            ->where('is_approved', true)
+            ->get();
+        
+        // If no teachers found using school_id, try using the many-to-many relationship
+        if ($teachers->isEmpty()) {
+            $teachers = \App\Models\User::whereHas('teacherSchools', function($query) use ($student) {
+                $query->where('schools.id', $student->school_id);
+            })
+            ->whereHas('role', function($query) {
+                $query->where('name', 'teacher');
+            })
+            ->where('is_approved', true)
+            ->get();
+        }
+        
+        // If still no teachers found, fall back to classroom teachers
+        if ($teachers->isEmpty()) {
+            $teachers = \App\Models\User::whereIn('id', 
+                $student->classRooms->pluck('user_id')
+            )->get();
+        }
         
         return view('student.messages.compose', compact('student', 'teachers'));
     }
@@ -251,6 +273,35 @@ class StudentController extends Controller
         ]);
         
         $student = Auth::guard('student')->user();
+        
+        // Verify the teacher is from the same school and is actually a teacher
+        // First try direct school_id relationship
+        $teacher = \App\Models\User::where('id', $request->teacher_id)
+            ->where('school_id', $student->school_id)
+            ->whereHas('role', function($query) {
+                $query->where('name', 'teacher');
+            })
+            ->where('is_approved', true)
+            ->first();
+        
+        // If not found via direct school_id, try many-to-many relationship
+        if (!$teacher) {
+            $teacher = \App\Models\User::where('id', $request->teacher_id)
+                ->whereHas('teacherSchools', function($query) use ($student) {
+                    $query->where('schools.id', $student->school_id);
+                })
+                ->whereHas('role', function($query) {
+                    $query->where('name', 'teacher');
+                })
+                ->where('is_approved', true)
+                ->first();
+        }
+            
+        if (!$teacher) {
+            return redirect()->back()
+                ->with('error', 'المعلم المحدد غير متاح للمراسلة')
+                ->withInput();
+        }
         
         Message::create([
             'subject' => $request->subject,

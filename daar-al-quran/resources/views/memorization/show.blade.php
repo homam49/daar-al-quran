@@ -145,6 +145,11 @@
                                 <i class="fas fa-book me-2"></i>السور الأخيرة (78-114)
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="juz-tab" data-bs-toggle="tab" data-bs-target="#juz" type="button" role="tab">
+                                <i class="fas fa-bookmark me-2"></i>الأجزاء (1-30)
+                            </button>
+                        </li>
                     </ul>
                 </div>
 
@@ -181,10 +186,10 @@
                                             <div class="legend-box bg-success" style="width: 20px; height: 20px; border-radius: 4px;"></div>
                                             <small>محفوظ</small>
                                         </span>
-                                        <!-- <span class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center gap-2">
                                             <div class="legend-box bg-info" style="width: 20px; height: 20px; border-radius: 4px;"></div>
-                                            <small>تمت المراجعة</small>
-                                        </span> -->
+                                            <small>محفوظ سابقا</small>
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -201,8 +206,11 @@
                                                     case 'memorized':
                                                         $statusClass = 'bg-success text-white';
                                                         break;
-                                                    case 'reviewed':
+                                                    case 'previously_memorized':
                                                         $statusClass = 'bg-info text-white';
+                                                        break;
+                                                    case 'reviewed':
+                                                        $statusClass = 'bg-primary text-white';
                                                         break;
                                                     case 'in_progress':
                                                         $statusClass = 'bg-warning text-dark';
@@ -268,10 +276,10 @@
                                             <div class="legend-box bg-success" style="width: 20px; height: 20px; border-radius: 4px;"></div>
                                             <small>محفوظ</small>
                                         </span>
-                                        <!-- <span class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center gap-2">
                                             <div class="legend-box bg-info" style="width: 20px; height: 20px; border-radius: 4px;"></div>
-                                            <small>تمت المراجعة</small>
-                                        </span> -->
+                                            <small>محفوظ سابقا</small>
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -288,8 +296,11 @@
                                                 case 'memorized':
                                                     $statusClass = 'bg-success text-white';
                                                     break;
-                                                case 'reviewed':
+                                                case 'previously_memorized':
                                                     $statusClass = 'bg-info text-white';
+                                                    break;
+                                                case 'reviewed':
+                                                    $statusClass = 'bg-primary text-white';
                                                     break;
                                                 case 'in_progress':
                                                     $statusClass = 'bg-warning text-dark';
@@ -325,6 +336,94 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Juz Tab -->
+                        <div class="tab-pane fade" id="juz" role="tabpanel">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0">الأجزاء (1-30) - 30 جزء</h5>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="alert alert-info py-2 px-3 mb-0">
+                                            <small><i class="fas fa-mouse-pointer me-1"></i>انقر لتغيير الحالة • كليك يمين للملاحظات</small>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="toggleNotesMode()">
+                                            <i class="fas fa-sticky-note"></i> وضع الملاحظات
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Status Legend for Juz -->
+                                <div class="mb-3 p-3 bg-light rounded">
+                                    <div class="d-flex justify-content-center gap-4 flex-wrap">
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box bg-light border" style="width: 20px; height: 20px; border-radius: 4px;"></div>
+                                            <small>لم يبدأ</small>
+                                        </span>
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box" style="width: 20px; height: 20px; border-radius: 4px; background-color: #ffc0cb; border: 1px solid #e91e63;"></div>
+                                            <small>قيد الحفظ</small>
+                                        </span>
+                                        <span class="d-flex align-items-center gap-2">
+                                            <div class="legend-box" style="width: 20px; height: 20px; border-radius: 4px; background-color: #e91e63;"></div>
+                                            <small>محفوظ</small>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Juz Grid -->
+                                <div class="juz-grid" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                                    <div class="row g-3">
+                                    @foreach(\App\Models\MemorizationProgress::getAllJuz() as $juzNumber => $juzName)
+                                        @php
+                                            $juzId = "juz_{$juzNumber}";
+                                            $progress = $progressLookup[$juzId] ?? null;
+                                            $status = $progress ? $progress->status : 'not_started';
+                                            $hasNotes = $progress && !empty($progress->notes);
+                                            switch($status) {
+                                                case 'memorized':
+                                                    $statusClass = 'text-white';
+                                                    $bgStyle = 'background-color: #e91e63;';
+                                                    break;
+                                                case 'reviewed':
+                                                    $statusClass = 'text-white';
+                                                    $bgStyle = 'background-color: #e91e63;';
+                                                    break;
+                                                case 'in_progress':
+                                                    $statusClass = 'text-dark';
+                                                    $bgStyle = 'background-color: #ffc0cb; border: 1px solid #e91e63;';
+                                                    break;
+                                                default:
+                                                    $statusClass = 'bg-light border';
+                                                    $bgStyle = '';
+                                                    break;
+                                            }
+                                        @endphp
+                                        <div class="col-lg-3 col-md-4 col-sm-6">
+                                            <div class="card {{ $statusClass }} h-100 position-relative" 
+                                                 style="cursor: pointer; {{ $bgStyle }}"
+                                                 data-type="juz" 
+                                                 data-number="{{ $juzNumber }}" 
+                                                 data-name="{{ $juzName }}"
+                                                 data-current-status="{{ $status }}"
+                                                 @if($hasNotes) title="{{ $progress->notes }}" @endif
+                                                 onclick="handleCardClick(this, 'juz', {{ $juzNumber }}, '{{ $juzName }}')"
+                                                 oncontextmenu="openNotesModal(event, 'juz', {{ $juzNumber }}, '{{ $juzName }}'); return false;">
+                                                <div class="card-body p-3 text-center">
+                                                    <h6 class="card-title mb-1">الجزء {{ $juzNumber }}</h6>
+                                                    <small class="opacity-75">{{ $juzName }}</small>
+                                                </div>
+                                                @if($hasNotes)
+                                                    <i class="fas fa-sticky-note position-absolute" 
+                                                       style="top: 8px; right: 8px; font-size: 14px; color: #dc3545; z-index: 10;" 
+                                                       title="يحتوي على ملاحظات"></i>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -343,6 +442,7 @@
                     <input type="hidden" id="notesContentType" name="type">
                     <input type="hidden" id="notesPageNumber" name="page_number">
                     <input type="hidden" id="notesSurahNumber" name="surah_number">
+                    <input type="hidden" id="notesJuzNumber" name="juz_number">
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold" id="notesContentLabel"></label>
@@ -438,11 +538,11 @@
     box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
 }
 
-.pages-grid .card, .surahs-grid .card {
+.pages-grid .card, .surahs-grid .card, .juz-grid .card {
     transition: transform 0.1s ease;
 }
 
-.pages-grid .card:hover, .surahs-grid .card:hover {
+.pages-grid .card:hover, .surahs-grid .card:hover, .juz-grid .card:hover {
     transform: scale(1.05);
 }
 
@@ -473,6 +573,10 @@
     }
     
     .surahs-grid {
+        max-height: 400px;
+    }
+    
+    .juz-grid {
         max-height: 400px;
     }
     
@@ -591,12 +695,15 @@
 let currentStudent = {{ $student->id }};
 let notesMode = false;
 
-// Status cycle: not_started -> in_progress -> memorized -> not_started
-const statusCycle = ['not_started', 'in_progress', 'memorized'];
+// Status cycle for pages and surahs: not_started -> in_progress -> memorized -> previously_memorized -> not_started
+// Status cycle for juz: not_started -> in_progress -> memorized -> not_started
+const statusCycleDefault = ['not_started', 'in_progress', 'memorized', 'previously_memorized'];
+const statusCycleJuz = ['not_started', 'in_progress', 'memorized'];
 const statusClasses = {
     'not_started': 'bg-light border',
     'in_progress': 'bg-warning text-dark',
-    'memorized': 'bg-success text-white'
+    'memorized': 'bg-success text-white',
+    'previously_memorized': 'bg-info text-white'
 };
 
 function handleCardClick(cardElement, type, number, name) {
@@ -607,6 +714,9 @@ function handleCardClick(cardElement, type, number, name) {
     
     // Get current status
     const currentStatus = cardElement.dataset.currentStatus || 'not_started';
+    
+    // Choose appropriate status cycle based on type
+    const statusCycle = type === 'juz' ? statusCycleJuz : statusCycleDefault;
     
     // Get next status in cycle
     const currentIndex = statusCycle.indexOf(currentStatus);
@@ -632,9 +742,15 @@ function updateStatusDirectly(type, number, status, cardElement) {
             if (type === 'page') {
                 formData.append('page_number', number);
                 formData.append('surah_number', '');
-            } else {
+                formData.append('juz_number', '');
+            } else if (type === 'surah') {
                 formData.append('surah_number', number);
                 formData.append('page_number', '');
+                formData.append('juz_number', '');
+            } else { // juz
+                formData.append('juz_number', number);
+                formData.append('page_number', '');
+                formData.append('surah_number', '');
             }
             
             formData.append('status', status);
@@ -683,17 +799,39 @@ function updateStatusDirectly(type, number, status, cardElement) {
 }
 
 function updateCardAppearance(cardElement, status) {
-    // Remove all status classes
-    cardElement.classList.remove('bg-success', 'bg-warning', 'bg-light', 'text-white', 'text-dark', 'border');
+    const type = cardElement.dataset.type;
     
-    // Add new status classes
-    const newClasses = statusClasses[status].split(' ');
-    newClasses.forEach(cls => cardElement.classList.add(cls));
+    // Remove all status classes and inline styles
+    cardElement.classList.remove('bg-success', 'bg-warning', 'bg-light', 'text-white', 'text-dark', 'border');
+    cardElement.removeAttribute('style');
+    
+    // Add new status classes based on type
+    if (type === 'juz') {
+        // Pink color scheme for juz
+        switch(status) {
+            case 'memorized':
+                cardElement.style.backgroundColor = '#e91e63';
+                cardElement.classList.add('text-white');
+                break;
+            case 'in_progress':
+                cardElement.style.backgroundColor = '#ffc0cb';
+                cardElement.style.border = '1px solid #e91e63';
+                cardElement.classList.add('text-dark');
+                break;
+            default:
+                cardElement.classList.add('bg-light', 'border');
+                break;
+        }
+    } else {
+        // Default colors for pages and surahs
+        const newClasses = statusClasses[status].split(' ');
+        newClasses.forEach(cls => cardElement.classList.add(cls));
+    }
     
     // Update icon
     const iconContainer = cardElement.querySelector('.mt-1, .mt-2');
     if (iconContainer) {
-        updateIconDisplay(iconContainer, status, cardElement.dataset.type);
+        updateIconDisplay(iconContainer, status, type);
     }
 }
 
@@ -760,9 +898,15 @@ function openNotesModal(event, type, number, name) {
     if (type === 'page') {
         document.getElementById('notesPageNumber').value = number;
         document.getElementById('notesSurahNumber').value = '';
-    } else {
+        document.getElementById('notesJuzNumber').value = '';
+    } else if (type === 'surah') {
         document.getElementById('notesSurahNumber').value = number;
         document.getElementById('notesPageNumber').value = '';
+        document.getElementById('notesJuzNumber').value = '';
+    } else { // juz
+        document.getElementById('notesJuzNumber').value = number;
+        document.getElementById('notesPageNumber').value = '';
+        document.getElementById('notesSurahNumber').value = '';
     }
     
     // Load existing notes
@@ -785,15 +929,17 @@ function saveNotes() {
     const type = document.getElementById('notesContentType').value;
     const pageNumber = document.getElementById('notesPageNumber').value;
     const surahNumber = document.getElementById('notesSurahNumber').value;
+    const juzNumber = document.getElementById('notesJuzNumber').value;
     const notes = document.getElementById('notesText').value;
     
     formData.append('type', type);
     formData.append('page_number', pageNumber);
     formData.append('surah_number', surahNumber);
+    formData.append('juz_number', juzNumber);
     formData.append('notes', notes);
     
     // Keep current status - we only want to update notes
-    const number = pageNumber || surahNumber;
+    const number = pageNumber || surahNumber || juzNumber;
     const card = document.querySelector(`[data-type="${type}"][data-number="${number}"]`);
     const currentStatus = card ? card.dataset.currentStatus || 'not_started' : 'not_started';
     formData.append('status', currentStatus);
