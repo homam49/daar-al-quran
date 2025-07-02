@@ -66,7 +66,7 @@ return [
     |
     */
 
-    'youtube_tutorial_url' => env('YOUTUBE_TUTORIAL_URL', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+    'youtube_tutorial_url' => env('YOUTUBE_TUTORIAL_URL', 'https://youtu.be/LmDC6fylEuk'),
 
     /*
     |--------------------------------------------------------------------------
