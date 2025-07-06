@@ -40,9 +40,9 @@ class TeacherService
             ->limit(5)
             ->get();
         
-        // Add attendance count to each session
+        // Add attendance count to each session (present and late students)
         foreach ($recentSessions as $session) {
-            $session->attendance_count = $session->attendances()->count();
+            $session->attendance_count = $session->attendances()->whereIn('status', ['present', 'late'])->count();
         }
         
         // Get total sessions count
@@ -91,23 +91,19 @@ class TeacherService
     {
         $teacherId = Auth::id();
         
-        // Get schools where teacher is approved
-        $approvedSchoolIds = DB::table('school_teacher')
-            ->where('user_id', $teacherId)
-            ->where('is_approved', true)
-            ->pluck('school_id')
+        // Get classrooms that the teacher has been granted access to
+        $accessibleClassroomIds = DB::table('teacher_classroom_access')
+            ->where('teacher_id', $teacherId)
+            ->pluck('classroom_id')
             ->toArray();
         
-        // Get schools where teacher has created classrooms (legacy support)
-        $classroomSchoolIds = ClassRoom::where('user_id', $teacherId)
-            ->pluck('school_id')
-            ->toArray();
+        // STRICT: If no access records, return no classrooms
+        if (empty($accessibleClassroomIds)) {
+            return collect([]);
+        }
         
-        // Combine and get unique school IDs
-        $allSchoolIds = array_unique(array_merge($approvedSchoolIds, $classroomSchoolIds));
-        
-        // Return all classrooms in these schools
-        return ClassRoom::whereIn('school_id', $allSchoolIds)
+        // Return only classrooms that the teacher has been granted access to
+        return ClassRoom::whereIn('id', $accessibleClassroomIds)
             ->with(['school', 'schedules'])
             ->get();
     }

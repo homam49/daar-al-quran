@@ -34,3 +34,21 @@
     </div>
 </div>
 @endsection 
+
+<script>
+window.testDebug = function() {
+    console.log('Testing debug...');
+    fetch('/admin/debug/classrooms')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Debug data:', data);
+            alert('Debug data: ' + JSON.stringify(data, null, 2));
+        })
+        .catch(error => {
+            console.error('Debug error:', error);
+            alert('Debug error: ' + error.message);
+        });
+}
+</script>
+
+@stack('scripts') 

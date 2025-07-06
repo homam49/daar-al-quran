@@ -250,9 +250,9 @@ class StudentController extends Controller
         
         // If still no teachers found, fall back to classroom teachers
         if ($teachers->isEmpty()) {
-            $teachers = \App\Models\User::whereIn('id', 
-                $student->classRooms->pluck('user_id')
-            )->get();
+        $teachers = \App\Models\User::whereIn('id', 
+            $student->classRooms->pluck('user_id')
+        )->get();
         }
         
         return view('student.messages.compose', compact('student', 'teachers'));

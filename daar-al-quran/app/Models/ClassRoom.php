@@ -77,4 +77,30 @@ class ClassRoom extends Model
     {
         return $this->hasMany(Message::class)->where('type', 'class');
     }
+
+    /**
+     * Get the teachers who have access to this classroom.
+     */
+    public function authorizedTeachers()
+    {
+        return $this->belongsToMany(User::class, 'teacher_classroom_access', 'classroom_id', 'teacher_id')
+            ->withPivot('granted_by', 'granted_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the access records for this classroom.
+     */
+    public function accessRecords()
+    {
+        return $this->hasMany(TeacherClassroomAccess::class, 'classroom_id');
+    }
+
+    /**
+     * Check if a teacher has access to this classroom.
+     */
+    public function hasTeacherAccess(int $teacherId): bool
+    {
+        return $this->authorizedTeachers()->where('teacher_id', $teacherId)->exists();
+    }
 }

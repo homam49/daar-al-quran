@@ -130,6 +130,32 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Get the classrooms that the teacher has access to.
+     */
+    public function accessibleClassrooms()
+    {
+        return $this->belongsToMany(ClassRoom::class, 'teacher_classroom_access', 'teacher_id', 'classroom_id')
+            ->withPivot('granted_by', 'granted_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the access grants made by this admin.
+     */
+    public function classroomAccessGrants()
+    {
+        return $this->hasMany(TeacherClassroomAccess::class, 'granted_by');
+    }
+
+    /**
+     * Check if the teacher has access to a specific classroom.
+     */
+    public function hasClassroomAccess(int $classroomId): bool
+    {
+        return $this->accessibleClassrooms()->where('classroom_id', $classroomId)->exists();
+    }
+
+    /**
      * Send the email verification notification.
      *
      * @return void

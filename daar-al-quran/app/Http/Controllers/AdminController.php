@@ -263,5 +263,114 @@ class AdminController extends Controller
         
         return view('admin.classrooms', compact('classrooms'));
     }
+
+    /**
+     * Grant classroom access to a teacher.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function grantClassroomAccess(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'classroom_id' => 'required|exists:class_rooms,id',
+        ]);
+
+        $success = $this->adminService->grantClassroomAccess(
+            $request->teacher_id,
+            $request->classroom_id
+        );
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ليس لديك صلاحية لإدارة هذا الفصل أو هذا المعلم'
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم منح المعلم حق الوصول للفصل بنجاح'
+        ]);
+    }
+
+    /**
+     * Revoke classroom access from a teacher.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function revokeClassroomAccess(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'classroom_id' => 'required|exists:class_rooms,id',
+        ]);
+
+        $success = $this->adminService->revokeClassroomAccess(
+            $request->teacher_id,
+            $request->classroom_id
+        );
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ليس لديك صلاحية لإدارة هذا الفصل أو هذا المعلم'
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إلغاء حق الوصول للفصل بنجاح'
+        ]);
+    }
+
+    /**
+     * Get classroom access data for a teacher.
+     *
+     * @param  int  $teacher_id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getTeacherClassroomAccess($teacher_id)
+    {
+        try {
+            // Validate that the teacher exists
+            $teacher = User::find($teacher_id);
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'المعلم غير موجود'
+                ], 404);
+            }
+
+            // Check if admin has any schools
+            $adminSchools = School::where('admin_id', Auth::id())->get();
+            if ($adminSchools->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'لا توجد مدارس تابعة لك'
+                ], 400);
+            }
+
+            $data = $this->adminService->getTeacherClassroomAccess($teacher_id);
+
+            // Add debug info
+            $data['debug'] = [
+                'admin_id' => Auth::id(),
+                'admin_schools_count' => $adminSchools->count(),
+                'teacher_id' => $teacher_id,
+                'classrooms_count' => count($data['classrooms'])
+            ];
+
+            return response()->json($data);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خطأ في الخادم: ' . $e->getMessage(),
+                'error_details' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
 }
 

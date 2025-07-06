@@ -824,8 +824,8 @@ function updateCardAppearance(cardElement, status) {
         }
     } else {
         // Default colors for pages and surahs
-        const newClasses = statusClasses[status].split(' ');
-        newClasses.forEach(cls => cardElement.classList.add(cls));
+    const newClasses = statusClasses[status].split(' ');
+    newClasses.forEach(cls => cardElement.classList.add(cls));
     }
     
     // Update icon

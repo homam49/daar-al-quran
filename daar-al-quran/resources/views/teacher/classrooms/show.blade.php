@@ -255,7 +255,7 @@
                                                     <td>{{ $index + 1 }}</td>
                                                     <td>{{ $session->session_date->format('Y-m-d') }}</td>
                                                     <td><span class="time-display">{{ $session->start_time }} - {{ $session->end_time }}</span></td>
-                                                    <td>{{ $session->attendances->where('status', 'present')->count() }}</td>
+                                                    <td>{{ $session->attendances->whereIn('status', ['present', 'late'])->count() }}</td>
                                                     <td>{{ $session->attendances->where('status', 'absent')->count() }}</td>
                                                     <td>{{ Str::limit($session->notes, 30) }}</td>
                                                     <td>

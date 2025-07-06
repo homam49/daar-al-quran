@@ -112,7 +112,7 @@ class ClassRoomPolicy
     }
 
     /**
-     * Check if teacher belongs to the school of the classroom.
+     * Check if teacher has access to the specific classroom.
      *
      * @param  \App\Models\User  $user
      * @param  \App\Models\ClassRoom  $classRoom
@@ -120,22 +120,44 @@ class ClassRoomPolicy
      */
     private function teacherBelongsToClassroomSchool(User $user, ClassRoom $classRoom): bool
     {
-        // Check if teacher is approved for this school through school_teacher table
+        // First check if teacher has been granted specific access to this classroom
+        $hasSpecificAccess = DB::table('teacher_classroom_access')
+            ->where('teacher_id', $user->id)
+            ->where('classroom_id', $classRoom->id)
+            ->exists();
+
+        if ($hasSpecificAccess) {
+            return true;
+        }
+
+        // For backward compatibility, check if teacher is approved for this school 
+        // and has no specific classroom access restrictions
         $isApprovedForSchool = DB::table('school_teacher')
             ->where('user_id', $user->id)
             ->where('school_id', $classRoom->school_id)
             ->where('is_approved', true)
             ->exists();
 
-        if ($isApprovedForSchool) {
+        // Check if teacher has any specific classroom access in the system
+        $hasAnySpecificAccess = DB::table('teacher_classroom_access')
+            ->where('teacher_id', $user->id)
+            ->exists();
+
+        // If teacher is approved for the school but has no specific access restrictions,
+        // allow access (legacy behavior)
+        if ($isApprovedForSchool && !$hasAnySpecificAccess) {
             return true;
         }
 
-        // Also check if teacher has any classroom in this school (legacy support)
+        // Also check if teacher has created classroom in this school (legacy support)
         $hasClassroomInSchool = \App\Models\ClassRoom::where('user_id', $user->id)
             ->where('school_id', $classRoom->school_id)
             ->exists();
 
-        return $hasClassroomInSchool;
+        if ($hasClassroomInSchool && !$hasAnySpecificAccess) {
+            return true;
+        }
+
+        return false;
     }
 }

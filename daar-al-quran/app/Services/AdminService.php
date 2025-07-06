@@ -362,4 +362,111 @@ class AdminService
             ->with(['school', 'teacher', 'students'])
             ->get();
     }
+
+    /**
+     * Grant classroom access to a teacher
+     *
+     * @param int $teacherId
+     * @param int $classroomId
+     * @return bool
+     */
+    public function grantClassroomAccess(int $teacherId, int $classroomId): bool
+    {
+        // Verify the classroom belongs to admin's school
+        $classroom = \App\Models\ClassRoom::whereHas('school', function($query) {
+            $query->where('admin_id', Auth::id());
+        })->where('id', $classroomId)->first();
+        
+        if (!$classroom) {
+            return false;
+        }
+        
+        // Verify the teacher belongs to the same school
+        $teacher = User::where('id', $teacherId)
+            ->whereHas('teacherSchools', function($query) use ($classroom) {
+                $query->where('school_id', $classroom->school_id)
+                      ->where('is_approved', true);
+            })
+            ->first();
+        
+        if (!$teacher) {
+            return false;
+        }
+        
+        // Grant access
+        \App\Models\TeacherClassroomAccess::updateOrCreate(
+            [
+                'teacher_id' => $teacherId,
+                'classroom_id' => $classroomId,
+            ],
+            [
+                'granted_by' => Auth::id(),
+                'granted_at' => now(),
+            ]
+        );
+        
+        return true;
+    }
+
+    /**
+     * Revoke classroom access from a teacher
+     *
+     * @param int $teacherId
+     * @param int $classroomId
+     * @return bool
+     */
+    public function revokeClassroomAccess(int $teacherId, int $classroomId): bool
+    {
+        // Verify the classroom belongs to admin's school
+        $classroom = \App\Models\ClassRoom::whereHas('school', function($query) {
+            $query->where('admin_id', Auth::id());
+        })->where('id', $classroomId)->first();
+        
+        if (!$classroom) {
+            return false;
+        }
+        
+        // Revoke access
+        \App\Models\TeacherClassroomAccess::where('teacher_id', $teacherId)
+            ->where('classroom_id', $classroomId)
+            ->delete();
+        
+        return true;
+    }
+
+    /**
+     * Get teacher's classroom access data
+     *
+     * @param int $teacherId
+     * @return array
+     */
+    public function getTeacherClassroomAccess(int $teacherId): array
+    {
+        // Get admin's schools
+        $adminSchools = School::where('admin_id', Auth::id())->get();
+        $schoolIds = $adminSchools->pluck('id');
+        
+        // Get all classrooms in admin's schools
+        $allClassrooms = \App\Models\ClassRoom::whereIn('school_id', $schoolIds)
+            ->with('school')
+            ->get();
+        
+        // Get teacher's current access
+        $teacherAccess = \App\Models\TeacherClassroomAccess::where('teacher_id', $teacherId)
+            ->whereIn('classroom_id', $allClassrooms->pluck('id'))
+            ->pluck('classroom_id')
+            ->toArray();
+        
+        return [
+            'classrooms' => $allClassrooms->map(function($classroom) use ($teacherAccess) {
+                return [
+                    'id' => $classroom->id,
+                    'name' => $classroom->name,
+                    'school_name' => $classroom->school->name,
+                    'has_access' => in_array($classroom->id, $teacherAccess),
+                ];
+            }),
+            'teacher_id' => $teacherId,
+        ];
+    }
 } 

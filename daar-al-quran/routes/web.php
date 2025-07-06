@@ -140,6 +140,11 @@ Route::middleware(['auth', 'role:admin', 'approved', 'verified'])->prefix('admin
     // Classroom management routes
     Route::get('/classrooms', [AdminController::class, 'classrooms'])->name('admin.classrooms');
     
+    // Teacher classroom access management routes
+    Route::post('/teachers/classroom-access/grant', [AdminController::class, 'grantClassroomAccess'])->name('admin.teachers.classroom-access.grant');
+    Route::post('/teachers/classroom-access/revoke', [AdminController::class, 'revokeClassroomAccess'])->name('admin.teachers.classroom-access.revoke');
+    Route::get('/teachers/classroom-access/{teacher_id}', [AdminController::class, 'getTeacherClassroomAccess'])->name('admin.teachers.classroom-access.get');
+    
     // Reports
     Route::get('/reports', [AdminController::class, 'reports'])->name('admin.reports');
     
@@ -154,3 +159,14 @@ Route::middleware(['auth', 'role:admin', 'approved', 'verified'])->prefix('admin
 // Include modular route files
 require __DIR__.'/modules/teacher.php';
 require __DIR__.'/modules/student.php';
+
+// Debug route (always available for testing)
+Route::get('/admin/debug/classrooms', function() {
+    $schools = \App\Models\School::where('admin_id', Auth::id())->get();
+    $classrooms = \App\Models\ClassRoom::whereIn('school_id', $schools->pluck('id'))->with('school')->get();
+    return response()->json([
+        'admin_id' => Auth::id(),
+        'schools' => $schools,
+        'classrooms' => $classrooms
+    ]);
+});
