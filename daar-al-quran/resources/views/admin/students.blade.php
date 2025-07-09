@@ -103,6 +103,13 @@
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0">قائمة الطلاب</h5>
             <div class="d-flex align-items-center filter-container">
+                <div class="input-group me-2" style="width: 300px;">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control form-control-sm" id="studentSearchInput" placeholder="ابحث بالاسم، البريد أو الهاتف..." oninput="performStudentSearch()">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearStudentSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
                 @if(count($classrooms) > 0)
                 <select class="form-select form-select-sm me-2" id="classroomFilter" onchange="filterByClassroom()">
                     <option value="all">جميع الفصول</option>
@@ -132,7 +139,20 @@
                     </thead>
                     <tbody>
                         @foreach($students as $index => $student)
-                            <tr class="student-row" data-classroom-ids="{{ $student->classRooms->pluck('id')->implode(',') }}">
+                            @php
+                                $searchText = trim(
+                                    ($student->first_name ?? '') . ' ' .
+                                    ($student->middle_name ?? '') . ' ' .
+                                    ($student->last_name ?? '') . ' ' .
+                                    ($student->email ?? '') . ' ' .
+                                    ($student->phone ?? '') . ' ' .
+                                    ($student->username ?? '') . ' ' .
+                                    ($student->address ?? '')
+                                );
+                            @endphp
+                            <tr class="student-row" 
+                                data-classroom-ids="{{ $student->classRooms->pluck('id')->implode(',') }}"
+                                data-search-text="{{ $searchText }}">
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $student->name ?? ($student->first_name . ' ' . $student->last_name) }}</td>
                                 <td>{{ isset($student->birth_year) ? (date('Y') - $student->birth_year) : 'غير محدد' }} سنة</td>
@@ -221,10 +241,12 @@
         }
     });
     
-    // Function to filter students by classroom
-    function filterByClassroom() {
+    // Function to apply all filters (search + classroom)
+    function applyAllFilters() {
+        var searchInput = document.getElementById('studentSearchInput');
         var classroomFilter = document.getElementById('classroomFilter');
-        var selectedClassroom = classroomFilter.value;
+        var searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        var selectedClassroom = classroomFilter ? classroomFilter.value : 'all';
         var rows = document.querySelectorAll('.student-row');
         var visibleRows = 0;
         
@@ -234,11 +256,32 @@
             currentOpenDropdown = null;
         }
         
-        // Loop through all rows and show/hide based on classroom
-        rows.forEach(function(row) {
-            var classroomIds = row.getAttribute('data-classroom-ids').split(',');
+        // Loop through all rows and apply both filters
+        rows.forEach(function(row, index) {
+            var showRow = true;
             
-            if (selectedClassroom === 'all' || classroomIds.includes(selectedClassroom)) {
+            // Apply search filter
+            if (searchTerm !== '') {
+                var searchText = row.getAttribute('data-search-text') || '';
+                
+                // Simple contains check
+                if (searchText.toLowerCase().indexOf(searchTerm.toLowerCase()) >= 0) {
+                    showRow = true;
+                } else {
+                    showRow = false;
+                }
+            }
+            
+            // Apply classroom filter (only if search is empty)
+            if (showRow && searchTerm === '' && selectedClassroom !== 'all') {
+                var classroomIds = row.getAttribute('data-classroom-ids').split(',');
+                if (!classroomIds.includes(selectedClassroom)) {
+                    showRow = false;
+                }
+            }
+            
+            // Show/hide row
+            if (showRow) {
                 row.style.display = '';
                 visibleRows++;
             } else {
@@ -249,10 +292,47 @@
         // Show or hide no results message
         var noStudentsFound = document.getElementById('noStudentsFound');
         if (visibleRows === 0 && rows.length > 0) {
+            if (searchTerm !== '') {
+                noStudentsFound.innerHTML = '<i class="fas fa-search me-2"></i>لا توجد طلاب مطابقون لبحثك: "' + searchTerm + '"';
+            } else {
+                noStudentsFound.innerHTML = '<i class="fas fa-filter me-2"></i>لا يوجد طلاب مطابقون لمعايير البحث';
+            }
             noStudentsFound.style.display = 'block';
         } else {
             noStudentsFound.style.display = 'none';
         }
+    }
+    
+    // Function to filter students by classroom
+    function filterByClassroom() {
+        // Clear search when using classroom filter
+        var searchInput = document.getElementById('studentSearchInput');
+        if (searchInput) searchInput.value = '';
+        
+        applyAllFilters();
+    }
+    
+    // Function to perform search
+    function performStudentSearch() {
+        // Clear classroom filter when searching
+        var classroomFilter = document.getElementById('classroomFilter');
+        if (classroomFilter) classroomFilter.value = 'all';
+        
+        applyAllFilters();
+    }
+    
+    // Function to clear search
+    function clearStudentSearch() {
+        var searchInput = document.getElementById('studentSearchInput');
+        var classroomFilter = document.getElementById('classroomFilter');
+        
+        if (searchInput) searchInput.value = '';
+        if (classroomFilter) classroomFilter.value = 'all';
+        
+        applyAllFilters();
+        
+        // Focus back to search input
+        if (searchInput) searchInput.focus();
     }
 </script>
 @endsection 

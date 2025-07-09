@@ -77,4 +77,5 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     Route::get('/students/{student}/memorization', [MemorizationController::class, 'show'])->name('teacher.memorization.show');
     Route::post('/students/{student}/memorization', [MemorizationController::class, 'update'])->name('teacher.memorization.update');
     Route::get('/students/{student}/memorization/{type}/{number}', [MemorizationController::class, 'getProgressInfo'])->name('teacher.memorization.progress');
+    Route::post('/students/{student}/memorization/batch', [MemorizationController::class, 'batchUpdate'])->name('teacher.memorization.batch_update');
 }); 

@@ -75,7 +75,8 @@
                             <div class="card shadow-sm h-100">
                                 <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
                                     <h5 class="mb-0"><i class="fas fa-user-graduate me-2"></i>الطلاب المسجلين</h5>
-                                    <div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <input type="text" class="form-control form-control-sm me-2" id="classStudentSearchInput" placeholder="ابحث عن طالب..." style="width: 220px; max-width: 100%;" oninput="filterClassStudents()">
                                         <button type="button" class="btn btn-light btn-sm" onclick="document.getElementById('newStudentModalOverlay').style.display='block';">
                                             <i class="fas fa-user-plus"></i> إضافة طالب جديد
                                         </button>
@@ -100,7 +101,18 @@
                                             </thead>
                                             <tbody>
                                                 @foreach($classroom->students as $index => $student)
-                                                <tr>
+                                                @php
+                                                    $searchText = trim(
+                                                        ($student->first_name ?? '') . ' ' .
+                                                        ($student->middle_name ?? '') . ' ' .
+                                                        ($student->last_name ?? '') . ' ' .
+                                                        ($student->email ?? '') . ' ' .
+                                                        ($student->phone ?? '') . ' ' .
+                                                        ($student->username ?? '') . ' ' .
+                                                        ($student->address ?? '')
+                                                    );
+                                                @endphp
+                                                <tr data-search-text="{{ $searchText }}">
                                                     <td>{{ $index + 1 }}</td>
                                                     <td>{{ $student->name }}</td>
                                                     <td>{{ $student->age }} سنة</td>
@@ -171,6 +183,9 @@
                                                 @endforeach
                                             </tbody>
                                         </table>
+                                        <div id="noClassStudentsFound" class="alert alert-warning mt-3" style="display: none;">
+                                            <i class="fas fa-search"></i> لا يوجد طلاب مطابقون لبحثك.
+                                        </div>
                                     </div>
 
                                     <!-- Floating Credentials Popup -->
@@ -375,18 +390,33 @@
                     <label for="student_search" class="form-label">البحث عن طالب</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control" id="student_search" placeholder="اكتب اسم الطالب للبحث...">
+                        <input type="text" class="form-control" id="student_search" placeholder="اكتب اسم الطالب للبحث..." oninput="filterStudents()">
                     </div>
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> ابحث بالاسم الأول أو الأوسط أو الأخير</small>
                 </div>
                 <div class="mb-3">
                     <label for="existing_student_id" class="form-label">اختر الطالب<span class="text-danger">*</span></label>
                     <select class="form-select form-select-lg" id="existing_student_id" name="existing_student_id" required>
                         <option value="">-- اختر طالب --</option>
                         @foreach($existingStudents as $student)
-                            <option value="{{ $student->id }}">{{ $student->name }}</option>
+                            @php
+                                $searchText = trim(
+                                    ($student->first_name ?? '') . ' ' .
+                                    ($student->middle_name ?? '') . ' ' .
+                                    ($student->last_name ?? '') . ' ' .
+                                    ($student->email ?? '') . ' ' .
+                                    ($student->phone ?? '') . ' ' .
+                                    ($student->username ?? '') . ' ' .
+                                    ($student->address ?? '')
+                                );
+                            @endphp
+                            <option value="{{ $student->id }}" data-search-text="{{ $searchText }}">{{ $student->name }}</option>
                         @endforeach
                     </select>
                     <small class="text-muted d-block mt-1"><i class="fas fa-info-circle"></i> سيتم عرض الطلاب الموجودين في نفس المدرسة فقط</small>
+                    <div id="no_students_found" class="alert alert-warning mt-2" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i> لا توجد طلاب مطابقة لبحثك
+                    </div>
                 </div>
                 <div class="text-end">
                     <button type="button" class="btn btn-secondary" onclick="document.getElementById('existingStudentModalOverlay').style.display='none';">إلغاء</button>
@@ -576,6 +606,69 @@
 
 @section('scripts')
 <script>
+    // Function to filter students in the existing student modal
+    function filterStudents() {
+        const searchInput = document.getElementById('student_search');
+        const select = document.getElementById('existing_student_id');
+        const noStudentsFound = document.getElementById('no_students_found');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        
+        let visibleOptions = 0;
+        const options = select.querySelectorAll('option');
+        
+        options.forEach(function(option) {
+            if (option.value === '') {
+                // Keep the default "-- اختر طالب --" option
+                option.style.display = '';
+                return;
+            }
+            
+            const searchText = option.getAttribute('data-search-text') || '';
+            
+            if (searchTerm === '' || searchText.includes(searchTerm)) {
+                option.style.display = '';
+                visibleOptions++;
+            } else {
+                option.style.display = 'none';
+            }
+        });
+        
+        // Show/hide no results message
+        if (searchTerm !== '' && visibleOptions === 0) {
+            noStudentsFound.style.display = 'block';
+            select.style.display = 'none';
+        } else {
+            noStudentsFound.style.display = 'none';
+            select.style.display = '';
+        }
+        
+        // Reset select value if current selection is hidden
+        if (select.value && select.querySelector(`option[value="${select.value}"]`).style.display === 'none') {
+            select.value = '';
+        }
+    }
+
+    function filterClassStudents() {
+        var input = document.getElementById('classStudentSearchInput');
+        var filter = input.value.toLowerCase();
+        var rows = document.querySelectorAll('table.table.table-hover tbody tr');
+        var anyVisible = false;
+        rows.forEach(function(row) {
+            var searchText = row.getAttribute('data-search-text') || '';
+            if (searchText.toLowerCase().indexOf(filter) > -1) {
+                row.style.display = '';
+                anyVisible = true;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        // Optionally, show a message if no students match
+        var noResults = document.getElementById('noClassStudentsFound');
+        if (noResults) {
+            noResults.style.display = anyVisible ? 'none' : 'block';
+        }
+    }
+
     // Function to open broadcast modal
     function openBroadcastModal() {
         // Clear previous input

@@ -33,13 +33,20 @@
             </div>
             <div class="col-auto">
                 <div class="d-flex">
-                    <select class="form-select form-select-sm me-2" id="classroomFilter">
+                    <div class="input-group me-2" style="width: 500px; max-width: 100%;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="ابحث بالاسم..." oninput="performSearch()">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearAllFilters()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <select class="form-select form-select-sm me-1" id="classroomFilter" style="width: 120px; min-width: 80px;">
                         <option value="all">جميع الفصول</option>
                         @foreach($classrooms as $classroom)
                             <option value="{{ $classroom->id }}">{{ $classroom->name }}</option>
                         @endforeach
                     </select>
-                    <select class="form-select form-select-sm" id="schoolFilter">
+                    <select class="form-select form-select-sm" id="schoolFilter" style="width: 120px; min-width: 80px;">
                         <option value="all">جميع المدارس</option>
                         @foreach($schools as $school)
                             <option value="{{ $school->id }}">{{ $school->name }}</option>
@@ -71,9 +78,20 @@
                     </thead>
                     <tbody>
                         @foreach($students as $student)
+                        @php
+                            $searchText = trim(
+                                ($student->first_name ?? '') . ' ' .
+                                ($student->middle_name ?? '') . ' ' .
+                                ($student->last_name ?? '') . ' ' .
+                                ($student->email ?? '') . ' ' .
+                                ($student->phone ?? '') . ' ' .
+                                ($student->username ?? '') . ' ' .
+                                ($student->address ?? '')
+                            );
+                        @endphp
                         <tr 
                             data-school-id="{{ $student->school_id }}"
-                            data-search-text="{{ $student->name }} {{ $student->age }} {{ $student->school->name ?? '' }} {{ $student->username ?? '' }}"
+                            data-search-text="{{ $searchText }}"
                         >
                             <td>
                                 <input type="checkbox" class="student-checkbox" value="{{ $student->id }}" onclick="updateSelectedCount()" title="اختيار الطالب">
@@ -179,10 +197,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const schoolFilter = document.getElementById('schoolFilter');
     
     if (classroomFilter && schoolFilter) {
-        // Define the filter function - simplified version
+        // Define the comprehensive filter function
         function applyFilter() {
             const classroomValue = classroomFilter.value;
             const schoolValue = schoolFilter.value;
+            const searchInput = document.getElementById('searchInput');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
             
             // Get all rows
             const tableRows = document.querySelectorAll('#studentsTable tbody tr');
@@ -192,7 +212,16 @@ document.addEventListener('DOMContentLoaded', function() {
             tableRows.forEach(function(row) {
                 let showRow = true;
                 
-                // Apply only the active filter
+                // Apply search filter first
+                if (searchTerm !== '') {
+                    const searchText = row.getAttribute('data-search-text') || '';
+                    if (!searchText.toLowerCase().includes(searchTerm)) {
+                        showRow = false;
+                    }
+                }
+                
+                // Apply dropdown filters only if search is empty
+                if (showRow && searchTerm === '') {
                 if (classroomValue !== 'all') {
                     // Classroom filter is active
                     const classroomSpans = row.querySelectorAll('span[data-classroom-id]');
@@ -212,6 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const rowSchool = row.getAttribute('data-school-id');
                     if (rowSchool !== schoolValue) {
                         showRow = false;
+                        }
                     }
                 }
                 
@@ -223,6 +253,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show/hide no results message
             const noResults = document.getElementById('noResultsMessage');
             if (noResults) {
+                if (searchTerm !== '' && visibleRows === 0) {
+                    noResults.innerHTML = '<i class="fas fa-search"></i> لا توجد طلاب مطابقة لبحثك';
+                } else if (searchTerm === '' && visibleRows === 0) {
+                    noResults.innerHTML = '<i class="fas fa-filter"></i> لا توجد طلاب مطابقة للفلتر المحدد';
+                }
                 noResults.style.display = visibleRows === 0 ? 'block' : 'none';
             }
             
@@ -240,22 +275,62 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add event listeners
         classroomFilter.addEventListener('change', function() {
             if (this.value !== 'all') {
-                // Reset school filter
+                // Reset school filter and search
                 schoolFilter.value = 'all';
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = '';
             }
             applyFilter();
         });
         
         schoolFilter.addEventListener('change', function() {
             if (this.value !== 'all') {
-                // Reset classroom filter
+                // Reset classroom filter and search
                 classroomFilter.value = 'all';
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = '';
             }
             applyFilter();
         });
         
         // Run initial filter
         applyFilter();
+    }
+    
+    // Global search and clear functions
+    window.performSearch = function() {
+        const classroomFilter = document.getElementById('classroomFilter');
+        const schoolFilter = document.getElementById('schoolFilter');
+        
+        // Reset dropdown filters when searching
+        if (classroomFilter) classroomFilter.value = 'all';
+        if (schoolFilter) schoolFilter.value = 'all';
+        
+        // Apply the filter (which includes search logic)
+        if (classroomFilter && schoolFilter) {
+            // Re-run the same filter function
+            const event = new Event('change');
+            classroomFilter.dispatchEvent(event);
+        }
+    };
+    
+    window.clearAllFilters = function() {
+        const searchInput = document.getElementById('searchInput');
+        const classroomFilter = document.getElementById('classroomFilter');
+        const schoolFilter = document.getElementById('schoolFilter');
+        
+        if (searchInput) searchInput.value = '';
+        if (classroomFilter) classroomFilter.value = 'all';
+        if (schoolFilter) schoolFilter.value = 'all';
+        
+        // Apply the filter to show all rows
+        if (classroomFilter && schoolFilter) {
+            const event = new Event('change');
+            classroomFilter.dispatchEvent(event);
+        }
+        
+        // Focus back to search input
+        if (searchInput) searchInput.focus();
     }
     
     // Initialize checkbox state on page load
@@ -332,14 +407,10 @@ function toggleAllStudents() {
 }
 
 function updateSelectedCount() {
-    console.log('updateSelectedCount called');
     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
     const selectedCount = selectedCheckboxes.length;
     const pdfButton = document.getElementById('pdfSelectedBtn');
-    
-    console.log('Selected count:', selectedCount);
-    console.log('PDF button found:', !!pdfButton);
-    
+
     if (pdfButton) {
         if (selectedCount > 0) {
             pdfButton.disabled = false;

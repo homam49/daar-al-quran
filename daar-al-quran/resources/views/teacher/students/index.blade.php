@@ -40,6 +40,23 @@
             <strong>ملاحظة:</strong> بيانات الدخول للطلاب هي نفسها لاسم المستخدم وكلمة المرور. يمكن للطلاب تغيير كلمة المرور بعد تسجيل الدخول الأول.
         </div>
         
+        <!-- Search Bar -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="studentSearchInput" placeholder="ابحث عن طالب بالاسم، الهاتف، اسم المستخدم أو العنوان..." oninput="searchStudents()">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                        <i class="fas fa-times"></i> مسح
+                    </button>
+                </div>
+                <small class="text-muted"><i class="fas fa-info-circle"></i> يتم البحث في جميع البيانات المتاحة للطلاب</small>
+            </div>
+            <div class="col-md-6 text-end">
+                <span id="searchResults" class="text-muted"></span>
+            </div>
+        </div>
+        
         <div class="table-responsive">
             <table class="table table-bordered table-hover" id="studentsTable">
                 <thead class="bg-light">
@@ -57,7 +74,18 @@
                 </thead>
                 <tbody>
                     @foreach($students as $student)
-                    <tr data-search-text="{{ $student->name }} {{ $student->phone ?? '' }} {{ $student->username ?? '' }} {{ $student->address ?? '' }}">
+                    @php
+                        $searchText = trim(
+                            ($student->first_name ?? '') . ' ' .
+                            ($student->middle_name ?? '') . ' ' .
+                            ($student->last_name ?? '') . ' ' .
+                            ($student->email ?? '') . ' ' .
+                            ($student->phone ?? '') . ' ' .
+                            ($student->username ?? '') . ' ' .
+                            ($student->address ?? '')
+                        );
+                    @endphp
+                    <tr data-search-text="{{ $searchText }}">
                         <td>
                             <input type="checkbox" class="student-checkbox" value="{{ $student->id }}" onclick="updateSelectedCount()" title="اختيار الطالب">
                         </td>
@@ -93,6 +121,9 @@
                     @endforeach
                 </tbody>
             </table>
+            <div id="noSearchResults" class="alert alert-warning mt-3" style="display: none;">
+                <i class="fas fa-search"></i> لا توجد طلاب مطابقة لبحثك. جرب مصطلحات بحث مختلفة.
+            </div>
         </div>
         @else
         <div class="text-center py-5">
@@ -186,13 +217,54 @@
 
 @section('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Debug: Check if elements exist
-    console.log('Page loaded, checking elements...');
-    console.log('Select All checkbox:', document.getElementById('selectAll'));
-    console.log('Student checkboxes:', document.querySelectorAll('.student-checkbox'));
-    console.log('PDF button:', document.querySelector('button[onclick="generateSelectedPdf()"]'));
+// Search functionality
+function searchStudents() {
+    const searchInput = document.getElementById('studentSearchInput');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const tableRows = document.querySelectorAll('#studentsTable tbody tr');
+    const noResultsDiv = document.getElementById('noSearchResults');
+    const searchResults = document.getElementById('searchResults');
     
+    let visibleRows = 0;
+    const totalRows = tableRows.length;
+    
+    tableRows.forEach(function(row) {
+        const searchText = row.getAttribute('data-search-text') || '';
+        
+        if (searchTerm === '' || searchText.toLowerCase().includes(searchTerm)) {
+            row.style.display = '';
+            visibleRows++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Update search results text
+    if (searchTerm === '') {
+        searchResults.textContent = `عرض جميع الطلاب (${totalRows})`;
+        noResultsDiv.style.display = 'none';
+    } else {
+        searchResults.textContent = `عرض ${visibleRows} من ${totalRows} طالب`;
+        noResultsDiv.style.display = visibleRows === 0 ? 'block' : 'none';
+    }
+    
+    // Reset checkbox states after search
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    updateSelectedCount();
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('studentSearchInput');
+    searchInput.value = '';
+    searchStudents();
+    searchInput.focus();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
     // Handle view credentials buttons
     const viewCredentialsButtons = document.querySelectorAll('.view-credentials');
     viewCredentialsButtons.forEach(button => {
@@ -254,12 +326,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // PDF Generation Functions (Global scope for onclick handlers)
 function toggleAllStudents() {
-    console.log('toggleAllStudents called');
     const selectAll = document.getElementById('selectAll');
     const checkboxes = document.querySelectorAll('.student-checkbox');
-    
-    console.log('Select All:', selectAll);
-    console.log('Checkboxes found:', checkboxes.length);
     
     if (selectAll && checkboxes.length > 0) {
         checkboxes.forEach(checkbox => {
@@ -270,12 +338,8 @@ function toggleAllStudents() {
 }
 
 function updateSelectedCount() {
-    console.log('updateSelectedCount called');
     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
     const generateBtn = document.getElementById('pdfSelectedBtn');
-    
-    console.log('Selected checkboxes:', selectedCheckboxes.length);
-    console.log('Generate button:', generateBtn);
     
     if (generateBtn) {
         const count = selectedCheckboxes.length;
@@ -294,10 +358,7 @@ function updateSelectedCount() {
 }
 
 function generateSelectedPdf() {
-    console.log('generateSelectedPdf called');
     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-    
-    console.log('Selected checkboxes for PDF:', selectedCheckboxes.length);
     
     if (selectedCheckboxes.length === 0) {
         alert('يرجى اختيار طالب واحد على الأقل');
@@ -305,7 +366,6 @@ function generateSelectedPdf() {
     }
     
     const studentIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-    console.log('Student IDs:', studentIds);
     
     // Create form and submit
     const form = document.createElement('form');
@@ -340,7 +400,6 @@ function generateSelectedPdf() {
 
 // Add event listeners after page load
 window.addEventListener('load', function() {
-    console.log('Window loaded, adding event listeners...');
     
     // Add change event listener to all student checkboxes
     const studentCheckboxes = document.querySelectorAll('.student-checkbox');
@@ -356,6 +415,13 @@ window.addEventListener('load', function() {
     
     // Initial count update
     updateSelectedCount();
+    
+    // Initialize search results text
+    const totalRows = document.querySelectorAll('#studentsTable tbody tr').length;
+    const searchResults = document.getElementById('searchResults');
+    if (searchResults) {
+        searchResults.textContent = `عرض جميع الطلاب (${totalRows})`;
+    }
 });
 </script>
 @endsection 

@@ -122,4 +122,41 @@ class MemorizationController extends Controller
         
         return response()->json($progressInfo);
     }
+
+    /**
+     * Batch update memorization progress for multiple items.
+     *
+     * @param Request $request
+     * @param Student $student
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function batchUpdate(Request $request, Student $student)
+    {
+        $this->authorize('update', [Student::class, $student]);
+        $teacherId = Auth::id();
+        $changes = $request->input('changes', []);
+        if (is_string($changes)) {
+            $changes = json_decode($changes, true);
+        }
+        $results = [];
+        foreach ($changes as $change) {
+            try {
+                $progress = $this->memorizationService->updateProgress($student, $change, $teacherId);
+                $results[] = [
+                    'success' => true,
+                    'type' => $change['type'] ?? null,
+                    'number' => $change['page_number'] ?? $change['surah_number'] ?? $change['juz_number'] ?? null,
+                    'status' => $change['status'] ?? null,
+                ];
+            } catch (\Exception $e) {
+                $results[] = [
+                    'success' => false,
+                    'type' => $change['type'] ?? null,
+                    'number' => $change['page_number'] ?? $change['surah_number'] ?? $change['juz_number'] ?? null,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+        return response()->json(['results' => $results]);
+    }
 } 

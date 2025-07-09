@@ -694,6 +694,8 @@
 <script>
 let currentStudent = {{ $student->id }};
 let notesMode = false;
+let pendingUpdates = [];
+let notesCache = {};
 
 // Status cycle for pages and surahs: not_started -> in_progress -> memorized -> previously_memorized -> not_started
 // Status cycle for juz: not_started -> in_progress -> memorized -> not_started
@@ -711,24 +713,50 @@ function handleCardClick(cardElement, type, number, name) {
         openNotesModal(null, type, number, name);
         return;
     }
-    
-    // Get current status
     const currentStatus = cardElement.dataset.currentStatus || 'not_started';
-    
-    // Choose appropriate status cycle based on type
     const statusCycle = type === 'juz' ? statusCycleJuz : statusCycleDefault;
-    
-    // Get next status in cycle
     const currentIndex = statusCycle.indexOf(currentStatus);
     const nextIndex = (currentIndex + 1) % statusCycle.length;
     const nextStatus = statusCycle[nextIndex];
-    
-    // Add cycling animation
     cardElement.classList.add('status-cycling');
-    
-    // Update status via API
-    updateStatusDirectly(type, number, nextStatus, cardElement);
+    // Update UI immediately
+    updateCardAppearance(cardElement, nextStatus);
+    cardElement.dataset.currentStatus = nextStatus;
+    setTimeout(() => cardElement.classList.remove('status-cycling'), 200);
+    showBriefSuccess(cardElement);
+    // Store change locally
+    let update = { type, status: nextStatus };
+    if (type === 'page') update.page_number = number;
+    else if (type === 'surah') update.surah_number = number;
+    else update.juz_number = number;
+    // Attach notes if cached
+    if (notesCache[type + '_' + number]) {
+        update.notes = notesCache[type + '_' + number];
+    }
+    // Remove any previous update for this item
+    pendingUpdates = pendingUpdates.filter(u => {
+        if (u.type !== type) return true;
+        if (type === 'page' && u.page_number == number) return false;
+        if (type === 'surah' && u.surah_number == number) return false;
+        if (type === 'juz' && u.juz_number == number) return false;
+        return true;
+    });
+    pendingUpdates.push(update);
 }
+
+// Batch send on page leave
+window.addEventListener('beforeunload', function(e) {
+    if (pendingUpdates.length === 0) return;
+    navigator.sendBeacon = navigator.sendBeacon || function(url, data) {
+        // Fallback for browsers that don't support sendBeacon
+        fetch(url, { method: 'POST', body: data, credentials: 'include' });
+    };
+    const url = `/teacher/students/${currentStudent}/memorization/batch`;
+    const formData = new FormData();
+    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+    formData.append('changes', JSON.stringify(pendingUpdates));
+    navigator.sendBeacon(url, formData);
+});
 
 function updateStatusDirectly(type, number, status, cardElement) {
     // First, get existing notes before updating
@@ -914,6 +942,7 @@ function openNotesModal(event, type, number, name) {
         .then(response => response.json())
         .then(data => {
             document.getElementById('notesText').value = data.notes || '';
+            notesCache[type + '_' + number] = data.notes; // Cache notes
         })
         .catch(error => {
             console.error('Error loading notes:', error);
