@@ -701,7 +701,9 @@ const LS_KEY = `memorization_pending_${currentStudent}`;
 // On page load, check for unsent updates in localStorage and send them
 window.addEventListener('DOMContentLoaded', function() {
     const unsent = localStorage.getItem(LS_KEY);
+    const savingIndicator = document.getElementById('savingIndicator');
     if (unsent) {
+        if (savingIndicator) savingIndicator.style.display = 'block';
         try {
             const changes = JSON.parse(unsent);
             if (Array.isArray(changes) && changes.length > 0) {
@@ -710,9 +712,19 @@ window.addEventListener('DOMContentLoaded', function() {
                 formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                 formData.append('changes', JSON.stringify(changes));
                 fetch(url, { method: 'POST', body: formData, credentials: 'include' })
-                    .then(() => localStorage.removeItem(LS_KEY));
+                    .then(() => {
+                        localStorage.removeItem(LS_KEY);
+                        if (savingIndicator) savingIndicator.style.display = 'none';
+                    });
+            } else {
+                if (savingIndicator) savingIndicator.style.display = 'none';
             }
-        } catch (e) { localStorage.removeItem(LS_KEY); }
+        } catch (e) {
+            localStorage.removeItem(LS_KEY);
+            if (savingIndicator) savingIndicator.style.display = 'none';
+        }
+    } else {
+        if (savingIndicator) savingIndicator.style.display = 'none';
     }
 });
 
