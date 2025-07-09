@@ -696,6 +696,25 @@ let currentStudent = {{ $student->id }};
 let notesMode = false;
 let pendingUpdates = [];
 let notesCache = {};
+const LS_KEY = `memorization_pending_${currentStudent}`;
+
+// On page load, check for unsent updates in localStorage and send them
+window.addEventListener('DOMContentLoaded', function() {
+    const unsent = localStorage.getItem(LS_KEY);
+    if (unsent) {
+        try {
+            const changes = JSON.parse(unsent);
+            if (Array.isArray(changes) && changes.length > 0) {
+                const url = `/teacher/students/${currentStudent}/memorization/batch`;
+                const formData = new FormData();
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                formData.append('changes', JSON.stringify(changes));
+                fetch(url, { method: 'POST', body: formData, credentials: 'include' })
+                    .then(() => localStorage.removeItem(LS_KEY));
+            }
+        } catch (e) { localStorage.removeItem(LS_KEY); }
+    }
+});
 
 // Status cycle for pages and surahs: not_started -> in_progress -> memorized -> previously_memorized -> not_started
 // Status cycle for juz: not_started -> in_progress -> memorized -> not_started
@@ -742,13 +761,14 @@ function handleCardClick(cardElement, type, number, name) {
         return true;
     });
     pendingUpdates.push(update);
+    // Save to localStorage on every change
+    localStorage.setItem(LS_KEY, JSON.stringify(pendingUpdates));
 }
 
-// Batch send on page leave
 window.addEventListener('beforeunload', function(e) {
     if (pendingUpdates.length === 0) return;
+    localStorage.setItem(LS_KEY, JSON.stringify(pendingUpdates));
     navigator.sendBeacon = navigator.sendBeacon || function(url, data) {
-        // Fallback for browsers that don't support sendBeacon
         fetch(url, { method: 'POST', body: data, credentials: 'include' });
     };
     const url = `/teacher/students/${currentStudent}/memorization/batch`;
