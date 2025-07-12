@@ -55,10 +55,12 @@ class StudentResetPasswordController extends Controller
         $status = $this->broker()->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
-                $user->password = Hash::make($password);
-                $user->setRememberToken(Str::random(60));
+                \Log::info('Resetting password for student: ' . $user->email);
+                $user->password = $password;
+                \Log::info('New hash before save: ' . $user->password);
+                $user->setRememberToken(\Str::random(60));
                 $user->save();
-                
+                \Log::info('Password saved for student: ' . $user->email);
                 event(new PasswordReset($user));
             }
         );
