@@ -159,4 +159,27 @@ class MemorizationController extends Controller
         }
         return response()->json(['results' => $results]);
     }
+
+    /**
+     * Get the count of pages memorized by the student in the last X days.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param \App\Models\Student $student
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function memorizedCountInDays(Request $request, Student $student)
+    {
+        $this->authorize('update', [\App\Models\Student::class, $student]);
+        $days = (int) $request->input('days', 7);
+        $fromDate = now()->subDays($days)->startOfDay();
+
+        $count = \App\Models\MemorizationProgress::where('student_id', $student->id)
+            ->where('type', 'page')
+            ->where('status', 'memorized')
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '>=', $fromDate)
+            ->count();
+
+        return response()->json(['count' => $count]);
+    }
 } 

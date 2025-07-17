@@ -193,6 +193,14 @@
                                     </div>
                                 </div>
                                 
+                                <!-- Memorized Pages Filter -->
+                                <div class="mb-3 d-flex align-items-center gap-3">
+                                    <label for="memorizedDaysInput" class="form-label mb-0">عدد الصفحات المحفوظة في آخر</label>
+                                    <input type="number" id="memorizedDaysInput" class="form-control form-control-sm" value="7" min="1" style="width: 70px;">
+                                    <span>يوم</span>
+                                    <span class="badge bg-success" id="memorizedCountDisplay">...</span>
+                                </div>
+                                
                                 <!-- Pages Grid -->
                                 <div class="pages-grid" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
                                     <div class="row g-2">
@@ -428,7 +436,7 @@
                 </div>
             </div>
 
-<!-- Notes Modal -->
+<!-- Notes Modal for Teachers -->
 <div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -446,6 +454,31 @@
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold" id="notesContentLabel"></label>
+                    </div>
+
+                    <!-- Progress Status Section -->
+                    <div class="mb-3 p-3 border rounded bg-light" id="progressInfoSection" style="display: none;">
+                        <h6 class="mb-3"><i class="fas fa-info-circle me-2"></i>معلومات الحفظ</h6>
+                        
+                        <div class="row mb-2" id="statusRow" style="display: none;">
+                            <div class="col-4"><strong>الحالة:</strong></div>
+                            <div class="col-8" id="currentStatus"></div>
+                        </div>
+                        
+                        <div class="row mb-2" id="startedRow" style="display: none;">
+                            <div class="col-4"><strong><i class="fas fa-play-circle me-1"></i>تاريخ البدء:</strong></div>
+                            <div class="col-8" id="startedDate"></div>
+                        </div>
+                        
+                        <div class="row mb-2" id="completedRow" style="display: none;">
+                            <div class="col-4"><strong><i class="fas fa-check-circle me-1"></i>تاريخ الإتمام:</strong></div>
+                            <div class="col-8" id="completedDate"></div>
+                        </div>
+                        
+                        <div class="row mb-0" id="teacherRow" style="display: none;">
+                            <div class="col-4"><strong><i class="fas fa-user-tie me-1"></i>المعلم:</strong></div>
+                            <div class="col-8" id="teacherName"></div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -969,18 +1002,91 @@ function openNotesModal(event, type, number, name) {
         document.getElementById('notesSurahNumber').value = '';
     }
     
-    // Load existing notes
+    // Load existing progress information and notes
     fetch(`/teacher/students/${currentStudent}/memorization/${type}/${number}`)
         .then(response => response.json())
         .then(data => {
+            // Update notes field
             document.getElementById('notesText').value = data.notes || '';
             notesCache[type + '_' + number] = data.notes; // Cache notes
+            
+            // Update progress information
+            populateProgressInfo(data);
         })
         .catch(error => {
-            console.error('Error loading notes:', error);
+            console.error('Error loading progress:', error);
         });
     
     new bootstrap.Modal(document.getElementById('notesModal')).show();
+}
+
+function populateProgressInfo(data) {
+    const progressSection = document.getElementById('progressInfoSection');
+    
+    // Show progress section if we have any meaningful data
+    const hasProgressData = data.status !== 'not_started' || data.started_at || data.completed_at || data.teacher;
+    
+    if (hasProgressData) {
+        progressSection.style.display = 'block';
+        
+        // Update status
+        if (data.status && data.status !== 'not_started') {
+            let statusText = '';
+            let statusClass = '';
+            switch(data.status) {
+                case 'memorized':
+                    statusText = 'محفوظ';
+                    statusClass = 'badge bg-success';
+                    break;
+                case 'previously_memorized':
+                    statusText = 'محفوظ سابقاً';
+                    statusClass = 'badge bg-info';
+                    break;
+                case 'reviewed':
+                    statusText = 'تمت المراجعة';
+                    statusClass = 'badge bg-primary';
+                    break;
+                case 'in_progress':
+                    statusText = 'قيد الحفظ';
+                    statusClass = 'badge bg-warning text-dark';
+                    break;
+                default:
+                    statusText = 'لم يبدأ';
+                    statusClass = 'badge bg-light text-dark';
+                    break;
+            }
+            document.getElementById('currentStatus').innerHTML = `<span class="${statusClass}"><i class="fas fa-circle me-1"></i>${statusText}</span>`;
+            document.getElementById('statusRow').style.display = 'flex';
+        } else {
+            document.getElementById('statusRow').style.display = 'none';
+        }
+        
+        // Update started date
+        if (data.started_at) {
+            document.getElementById('startedDate').textContent = data.started_at;
+            document.getElementById('startedRow').style.display = 'flex';
+        } else {
+            document.getElementById('startedRow').style.display = 'none';
+        }
+        
+        // Update completed date
+        if (data.completed_at) {
+            document.getElementById('completedDate').textContent = data.completed_at;
+            document.getElementById('completedRow').style.display = 'flex';
+        } else {
+            document.getElementById('completedRow').style.display = 'none';
+        }
+        
+        // Update teacher name
+        if (data.teacher) {
+            document.getElementById('teacherName').textContent = data.teacher;
+            document.getElementById('teacherRow').style.display = 'flex';
+        } else {
+            document.getElementById('teacherRow').style.display = 'none';
+        }
+    } else {
+        progressSection.style.display = 'none';
+    }
 }
 
 function saveNotes() {
@@ -1237,5 +1343,24 @@ function updateTabStyles() {
         })
     })
 }
+
+// --- Memorized Pages Filter ---
+const memorizedDaysInput = document.getElementById('memorizedDaysInput');
+const memorizedCountDisplay = document.getElementById('memorizedCountDisplay');
+
+function fetchMemorizedCount() {
+    const days = parseInt(memorizedDaysInput.value) || 7;
+    fetch(`/teacher/students/${currentStudent}/memorized-count?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            memorizedCountDisplay.textContent = data.count;
+        })
+        .catch(() => {
+            memorizedCountDisplay.textContent = '...';
+        });
+}
+
+memorizedDaysInput.addEventListener('change', fetchMemorizedCount);
+document.addEventListener('DOMContentLoaded', fetchMemorizedCount);
 </script>
 @endsection 
