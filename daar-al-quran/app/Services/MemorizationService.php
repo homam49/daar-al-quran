@@ -59,9 +59,13 @@ class MemorizationService
         $surahProgress = $progressRecords->where('type', 'surah');
         $juzProgress = $progressRecords->where('type', 'juz');
 
+        // Calculate weighted memorization count
+        $weightedMemorizedCount = $this->calculateWeightedMemorizedCount($progressRecords);
+
         return [
             'total' => $totalItems,
             'memorized' => $memorizedCount,
+            'weighted_memorized' => round($weightedMemorizedCount, 1),
             'in_progress' => $inProgressCount,
             'completion_percentage' => $completionPercentage,
             'pages' => [
@@ -73,6 +77,7 @@ class MemorizationService
                 'total' => 37, // Surahs 78-114
                 'memorized' => $surahProgress->where('status', 'memorized')->count(),
                 'in_progress' => $surahProgress->where('status', 'in_progress')->count(),
+                'weighted_memorized' => $this->calculateSurahWeightedCount($surahProgress->where('status', 'memorized')),
             ],
             'juz' => [
                 'total' => 30, // Juz 1-30
@@ -80,6 +85,27 @@ class MemorizationService
                 'in_progress' => $juzProgress->where('status', 'in_progress')->count(),
             ]
         ];
+    }
+
+    /**
+     * Calculate weighted count for surahs only.
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $surahProgress
+     * @return float
+     */
+    private function calculateSurahWeightedCount($surahProgress): float
+    {
+        $surahWeights = self::getSurahWeights();
+        $weightedCount = 0;
+        
+        foreach ($surahProgress as $progress) {
+            $surahNumber = $progress->surah_number;
+            if (isset($surahWeights[$surahNumber])) {
+                $weightedCount += $surahWeights[$surahNumber];
+            }
+        }
+        
+        return round($weightedCount, 1);
     }
 
     /**
@@ -169,5 +195,45 @@ class MemorizationService
             'completed_at' => $progress->completed_at ? $progress->completed_at->format('d/m/Y') : null,
             'last_reviewed_at' => $progress->last_reviewed_at ? $progress->last_reviewed_at->format('d/m/Y') : null,
         ];
+    }
+
+    /**
+     * Get surah weights based on approximate page counts (78-114).
+     *
+     * @return array
+     */
+    public static function getSurahWeights(): array
+    {
+        return [
+            78 => 1.5, 79 => 1.5, 80 => 1.0, 81 => 1.0, 82 => 0.7, 83 => 1.2, 84 => 0.8, 85 => 1.0,
+            86 => 0.5, 87 => 0.7, 88 => 0.8, 89 => 1.3, 90 => 0.7, 91 => 0.6, 92 => 0.7, 93 => 0.4,
+            94 => 0.4, 95 => 0.4, 96 => 0.6, 97 => 0.3, 98 => 0.8, 99 => 0.4, 100 => 0.4, 101 => 0.4,
+            102 => 0.4, 103 => 0.2, 104 => 0.4, 105 => 0.3, 106 => 0.2, 107 => 0.4, 108 => 0.2, 109 => 0.3,
+            110 => 0.3, 111 => 0.3, 112 => 0.2, 113 => 0.3, 114 => 0.3
+        ];
+    }
+
+    /**
+     * Calculate weighted memorization count including surah weights.
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $progressRecords
+     * @return float
+     */
+    public function calculateWeightedMemorizedCount($progressRecords): float
+    {
+        $surahWeights = self::getSurahWeights();
+        
+        $pageCount = $progressRecords->where('type', 'page')->where('status', 'memorized')->count();
+        $surahProgress = $progressRecords->where('type', 'surah')->where('status', 'memorized');
+        
+        $surahWeightedCount = 0;
+        foreach ($surahProgress as $progress) {
+            $surahNumber = $progress->surah_number;
+            if (isset($surahWeights[$surahNumber])) {
+                $surahWeightedCount += $surahWeights[$surahNumber];
+            }
+        }
+        
+        return $pageCount + $surahWeightedCount;
     }
 } 

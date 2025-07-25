@@ -291,6 +291,14 @@
                                     </div>
                                 </div>
                                 
+                                <!-- Memorized Pages Filter -->
+                                <div class="mb-3 d-flex align-items-center gap-3">
+                                    <label for="memorizedSurahsDaysInput" class="form-label mb-0">عدد الصفحات المحفوظة في آخر</label>
+                                    <input type="number" id="memorizedSurahsDaysInput" class="form-control form-control-sm" value="7" min="1" style="width: 70px;">
+                                    <span>يوم</span>
+                                    <span class="badge bg-success" id="memorizedSurahsCountDisplay">...</span>
+                                </div>
+                                
                                 <!-- Surahs Grid -->
                                 <div class="surahs-grid" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
                                     <div class="row g-3">
@@ -746,8 +754,11 @@ window.addEventListener('DOMContentLoaded', function() {
                 formData.append('changes', JSON.stringify(changes));
                 fetch(url, { method: 'POST', body: formData, credentials: 'include' })
                     .then(() => {
-                        localStorage.removeItem(LS_KEY);
-                        if (savingIndicator) savingIndicator.style.display = 'none';
+                        // Add delay before hiding indicator to give database time to update
+                        setTimeout(() => {
+                            localStorage.removeItem(LS_KEY);
+                            if (savingIndicator) savingIndicator.style.display = 'none';
+                        }, 1000); // 1 second delay
                     });
             } else {
                 if (savingIndicator) savingIndicator.style.display = 'none';
@@ -1362,5 +1373,25 @@ function fetchMemorizedCount() {
 
 memorizedDaysInput.addEventListener('change', fetchMemorizedCount);
 document.addEventListener('DOMContentLoaded', fetchMemorizedCount);
+
+// --- Memorized Surahs Filter ---
+const memorizedSurahsDaysInput = document.getElementById('memorizedSurahsDaysInput');
+const memorizedSurahsCountDisplay = document.getElementById('memorizedSurahsCountDisplay');
+
+function fetchMemorizedSurahsCount() {
+    const days = parseInt(memorizedSurahsDaysInput.value) || 7;
+    fetch(`/teacher/students/${currentStudent}/memorized-count?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            // Show total count (same as pages tab)
+            memorizedSurahsCountDisplay.textContent = data.count;
+        })
+        .catch(() => {
+            memorizedSurahsCountDisplay.textContent = '...';
+        });
+}
+
+memorizedSurahsDaysInput.addEventListener('change', fetchMemorizedSurahsCount);
+document.addEventListener('DOMContentLoaded', fetchMemorizedSurahsCount);
 </script>
 @endsection 

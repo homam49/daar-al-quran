@@ -173,13 +173,35 @@ class MemorizationController extends Controller
         $days = (int) $request->input('days', 7);
         $fromDate = now()->subDays($days)->startOfDay();
 
-        $count = \App\Models\MemorizationProgress::where('student_id', $student->id)
-            ->where('type', 'page')
+        // Get memorized progress in the last X days
+        $memorizedProgress = \App\Models\MemorizationProgress::where('student_id', $student->id)
+            ->whereIn('type', ['page', 'surah'])
             ->where('status', 'memorized')
             ->whereNotNull('completed_at')
             ->where('completed_at', '>=', $fromDate)
-            ->count();
+            ->get();
 
-        return response()->json(['count' => $count]);
+        // Calculate weighted count using service method
+        $totalWeightedCount = $this->memorizationService->calculateWeightedMemorizedCount($memorizedProgress);
+        
+        // Separate counts for detailed response
+        $pageCount = $memorizedProgress->where('type', 'page')->count();
+        $surahProgress = $memorizedProgress->where('type', 'surah');
+        
+        $surahWeights = \App\Services\MemorizationService::getSurahWeights();
+        $surahWeightedCount = 0;
+        foreach ($surahProgress as $progress) {
+            $surahNumber = $progress->surah_number;
+            if (isset($surahWeights[$surahNumber])) {
+                $surahWeightedCount += $surahWeights[$surahNumber];
+            }
+        }
+
+        return response()->json([
+            'count' => round($totalWeightedCount, 1),
+            'pages' => $pageCount,
+            'surahs_weighted' => round($surahWeightedCount, 1),
+            'total' => round($totalWeightedCount, 1)
+        ]);
     }
 } 
