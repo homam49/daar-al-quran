@@ -754,11 +754,8 @@ window.addEventListener('DOMContentLoaded', function() {
                 formData.append('changes', JSON.stringify(changes));
                 fetch(url, { method: 'POST', body: formData, credentials: 'include' })
                     .then(() => {
-                        // Add delay before hiding indicator to give database time to update
-                        setTimeout(() => {
-                            localStorage.removeItem(LS_KEY);
-                            if (savingIndicator) savingIndicator.style.display = 'none';
-                        }, 1000); // 1 second delay
+                        localStorage.removeItem(LS_KEY);
+                        if (savingIndicator) savingIndicator.style.display = 'none';
                     });
             } else {
                 if (savingIndicator) savingIndicator.style.display = 'none';
