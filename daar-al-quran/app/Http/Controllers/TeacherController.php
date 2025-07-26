@@ -10,9 +10,13 @@ use App\Http\Requests\UpdateNameRequest;
 use App\Models\ClassRoom;
 use App\Models\School;
 use App\Models\ClassSession;
+use App\Models\Student;
+use App\Models\MemorizationProgress;
+use App\Models\Attendance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class TeacherController extends Controller
 {
@@ -214,6 +218,97 @@ class TeacherController extends Controller
                 
         } catch (\Exception $e) {
             return back()->with('error', 'حدث خطأ في إنشاء ملف PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate CSV file with student information and memorization progress
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Symfony\Component\HttpFoundation\Response
+     */
+    public function generateStudentsCsv(Request $request)
+    {
+        $request->validate([
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'exists:students,id',
+            'days' => 'integer|min:1|max:365'
+        ]);
+
+        try {
+            $days = $request->input('days', 60);
+            $students = Student::whereIn('id', $request->student_ids)->get();
+            
+            $filename = 'students_report_' . date('Y-m-d') . '.csv';
+            
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ];
+            
+            $callback = function() use ($students, $days) {
+                $file = fopen('php://output', 'w');
+                
+                // Add BOM for UTF-8
+                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                
+                // Headers
+                fputcsv($file, [
+                    'اسم الطالب',
+                    'العمر',
+                    'الصفحات المحفوظة في آخر 6 أيام',
+                    'الصفحات المحفوظة في آخر ' . $days . ' يوم',
+                    'نسبة الحضور (%)',
+                    'المدرسة',
+                    'الفصول'
+                ]);
+                
+                foreach ($students as $student) {
+                    // Calculate memorization progress for last 6 days
+                    $sixDaysAgo = Carbon::now()->subDays(6);
+                    $pagesLast6Days = MemorizationProgress::where('student_id', $student->id)
+                        ->where('type', 'page')
+                        ->where('status', 'memorized')
+                        ->where('updated_at', '>=', $sixDaysAgo)
+                        ->count();
+
+                    // Calculate memorization progress for specified days
+                    $daysAgo = Carbon::now()->subDays($days);
+                    $pagesLastDays = MemorizationProgress::where('student_id', $student->id)
+                        ->where('type', 'page')
+                        ->where('status', 'memorized')
+                        ->where('updated_at', '>=', $daysAgo)
+                        ->count();
+
+                    // Calculate attendance percentage
+                    $totalSessions = Attendance::where('student_id', $student->id)->count();
+                    $attendedSessions = Attendance::where('student_id', $student->id)
+                        ->where('status', 'present')
+                        ->count();
+                    
+                    $attendancePercentage = $totalSessions > 0 ? round(($attendedSessions / $totalSessions) * 100, 1) : 0;
+
+                    // Get student's classes
+                    $classes = $student->classRooms->pluck('name')->implode(', ');
+
+                    fputcsv($file, [
+                        $student->name,
+                        $student->age . ' سنة',
+                        $pagesLast6Days,
+                        $pagesLastDays,
+                        $attendancePercentage . '%',
+                        $student->school->name ?? 'غير محدد',
+                        $classes ?: 'غير محدد'
+                    ]);
+                }
+                
+                fclose($file);
+            };
+            
+            return response()->stream($callback, 200, $headers);
+                
+        } catch (\Exception $e) {
+            return back()->with('error', 'حدث خطأ في إنشاء ملف CSV: ' . $e->getMessage());
         }
     }
 

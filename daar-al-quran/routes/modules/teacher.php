@@ -46,6 +46,9 @@ Route::middleware(['auth', 'role:teacher', 'approved', 'verified'])->prefix('tea
     Route::post('/classrooms/{classroom}/students/credentials/pdf', [TeacherController::class, 'generateClassroomCredentialsPdf'])->name('classroom.students.credentials.pdf');
     Route::post('/students/credentials/pdf', [TeacherController::class, 'generateSelectedCredentialsPdf'])->name('teacher.students.credentials.pdf');
     
+    // CSV export routes
+    Route::post('/students/csv', [TeacherController::class, 'generateStudentsCsv'])->name('teacher.students.csv');
+    
     // Session routes
     Route::get('/sessions', [ClassSessionController::class, 'all'])->name('sessions.index');
     

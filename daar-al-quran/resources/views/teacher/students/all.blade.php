@@ -10,7 +10,10 @@
             <div class="btn-group">
                 @if($students->count() > 0)
                 <button type="button" class="btn btn-primary btn-sm" onclick="generateSelectedPdf()" disabled id="pdfSelectedBtn">
-                    <i class="fas fa-file-pdf"></i> PDF للمختارين
+                    <i class="fas fa-file-pdf"></i> PDF للتسجيل
+                </button>
+                <button type="button" class="btn btn-success btn-sm" onclick="generateSelectedCsv()" disabled id="csvSelectedBtn">
+                    <i class="fas fa-file-csv"></i> CSV للتقرير
                 </button>
                 @endif
                 <a href="{{ route('classrooms.index') }}" class="btn btn-outline-primary btn-sm">
@@ -410,18 +413,33 @@ function updateSelectedCount() {
     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
     const selectedCount = selectedCheckboxes.length;
     const pdfButton = document.getElementById('pdfSelectedBtn');
+    const csvButton = document.getElementById('csvSelectedBtn');
 
     if (pdfButton) {
         if (selectedCount > 0) {
             pdfButton.disabled = false;
             pdfButton.classList.remove('btn-secondary');
             pdfButton.classList.add('btn-primary');
-            pdfButton.textContent = `PDF للمختارين (${selectedCount})`;
+            pdfButton.innerHTML = `<i class="fas fa-file-pdf"></i> PDF للتسجيل (${selectedCount})`;
         } else {
             pdfButton.disabled = true;
             pdfButton.classList.remove('btn-primary');
             pdfButton.classList.add('btn-secondary');
-            pdfButton.innerHTML = '<i class="fas fa-file-pdf"></i> PDF للمختارين';
+            pdfButton.innerHTML = '<i class="fas fa-file-pdf"></i> PDF للتسجيل';
+        }
+    }
+    
+    if (csvButton) {
+        if (selectedCount > 0) {
+            csvButton.disabled = false;
+            csvButton.classList.remove('btn-secondary');
+            csvButton.classList.add('btn-success');
+            csvButton.innerHTML = `<i class="fas fa-file-csv"></i> CSV للتقرير (${selectedCount})`;
+        } else {
+            csvButton.disabled = true;
+            csvButton.classList.remove('btn-success');
+            csvButton.classList.add('btn-secondary');
+            csvButton.innerHTML = '<i class="fas fa-file-csv"></i> CSV للتقرير';
         }
     }
     
@@ -448,12 +466,9 @@ function updateSelectedCount() {
 }
 
 function generateSelectedPdf() {
-    console.log('generateSelectedPdf called');
     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
     const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-    
-    console.log('Selected student IDs:', selectedIds);
-    
+        
     if (selectedIds.length === 0) {
         alert('يرجى اختيار طالب واحد على الأقل');
         return;
@@ -495,6 +510,61 @@ function generateSelectedPdf() {
     setTimeout(function() {
         pdfButton.disabled = false;
         pdfButton.innerHTML = originalText;
+    }, 3000);
+}
+
+function generateSelectedCsv() {
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+        
+    if (selectedIds.length === 0) {
+        alert('يرجى اختيار طالب واحد على الأقل');
+        return;
+    }
+    
+    // Show loading state
+    const csvButton = document.getElementById('csvSelectedBtn');
+    const originalText = csvButton.innerHTML;
+    csvButton.disabled = true;
+    csvButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري إنشاء الملف...';
+    
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ route("teacher.students.csv") }}';
+    form.style.display = 'none';
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = '{{ csrf_token() }}';
+    form.appendChild(csrfInput);
+    
+    // Add selected student IDs
+    selectedIds.forEach(function(id) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'student_ids[]';
+        input.value = id;
+        form.appendChild(input);
+    });
+    
+    // Add days parameter (default 60 days)
+    const daysInput = document.createElement('input');
+    daysInput.type = 'hidden';
+    daysInput.name = 'days';
+    daysInput.value = '60';
+    form.appendChild(daysInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
+    // Reset button state after a short delay
+    setTimeout(function() {
+        csvButton.disabled = false;
+        csvButton.innerHTML = originalText;
     }, 3000);
 }
 </script>
